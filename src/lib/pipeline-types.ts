@@ -69,6 +69,15 @@ export type Target = {
   label: string | null;
 };
 
+export type FieldChange = {
+  id: string;
+  opportunity_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  changed_at: string;
+};
+
 export type PipelineData = {
   opportunities: Opportunity[];
   lanes: Lane[];
@@ -77,7 +86,9 @@ export type PipelineData = {
   fieldLabels: FieldLabel[];
   picklists: Picklist[];
   targets: Target[];
+  changes: FieldChange[];
 };
+
 
 export type FieldKind = "text" | "number" | "date" | "boolean";
 
