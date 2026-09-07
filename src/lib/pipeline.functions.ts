@@ -123,7 +123,6 @@ export const getPipeline = createServerFn({ method: "GET" })
       importRuns: (importRuns.data ?? []) as PipelineData["importRuns"],
     };
 
-    };
   });
 
 
