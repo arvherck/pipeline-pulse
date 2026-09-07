@@ -472,25 +472,38 @@ export const saveTarget = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid().optional(),
         period: z.string().min(1),
-        targetAmount: z.number(),
+        targetAmount: z.number().min(0),
         metric: z.enum(["deal_value", "weighted_value"]),
         label: z.string().optional(),
+        periodStart: z.string().nullable().optional(),
+        periodEnd: z.string().nullable().optional(),
+        scopeField: z.enum(["category", "region", "segment"]).nullable().optional(),
+        scopeValue: z.string().nullable().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const scopeField = data.scopeField && data.scopeValue ? data.scopeField : null;
     const payload = {
       period: data.period,
       target_amount: data.targetAmount,
       metric: data.metric,
       label: data.label || null,
+      period_start: data.periodStart || null,
+      period_end: data.periodEnd || null,
+      scope_field: scopeField,
+      scope_value: scopeField ? data.scopeValue : null,
     };
     const { error } = data.id
       ? await context.supabase.from("targets").update(payload).eq("id", data.id)
       : await context.supabase.from("targets").insert(payload);
     if (error) throw new Error(error.message);
+
+    // Start collecting the series for this target's slice right away.
+    await recordSnapshots(context.supabase);
     return { ok: true };
   });
+
 
 export const deleteTarget = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
