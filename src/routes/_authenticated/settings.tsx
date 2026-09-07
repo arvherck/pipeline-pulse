@@ -19,10 +19,18 @@ import {
 import {
   IMPORT_FIELDS,
   PICKLIST_FIELDS,
+  formatMoney,
   labelFor,
   type PipelineData,
 } from "@/lib/pipeline-types";
+import {
+  SCOPE_FIELDS,
+  periodText,
+  targetTitle,
+  type ScopeField,
+} from "@/lib/targets";
 import { pipelineQueryOptions, useInvalidatePipeline } from "@/lib/use-pipeline";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -290,31 +298,114 @@ function Picklists({ data }: { data: PipelineData }) {
   );
 }
 
+type TargetForm = {
+  label: string;
+  amount: string;
+  metric: "deal_value" | "weighted_value";
+  periodStart: string;
+  periodEnd: string;
+  scopeField: "" | ScopeField;
+  scopeValue: string;
+};
+
+const EMPTY_TARGET: TargetForm = {
+  label: "",
+  amount: "",
+  metric: "deal_value",
+  periodStart: "",
+  periodEnd: "",
+  scopeField: "",
+  scopeValue: "",
+};
+
 function Targets({ data }: { data: PipelineData }) {
   const save = useServerFn(saveTarget);
   const remove = useServerFn(deleteTarget);
   const invalidate = useInvalidatePipeline();
-  const [period, setPeriod] = useState("");
-  const [amount, setAmount] = useState("");
-  const [metric, setMetric] = useState<"deal_value" | "weighted_value">("deal_value");
+  const [form, setForm] = useState<TargetForm>(EMPTY_TARGET);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const scopeChoices = form.scopeField
+    ? data.picklists.filter((p) => p.field_name === form.scopeField)
+    : [];
+
+  const amountValue = Number(form.amount.replace(/[^0-9.]/g, ""));
+  const problems: string[] = [];
+  if (!form.label.trim()) problems.push("Give the target a name");
+  if (!form.amount.trim() || !Number.isFinite(amountValue) || amountValue < 0)
+    problems.push("Enter an amount of zero or more");
+  if (form.periodStart && form.periodEnd && form.periodEnd < form.periodStart)
+    problems.push("The end date comes before the start date");
+  if (form.scopeField && !form.scopeValue) problems.push("Pick a value for the chosen slice");
+
+  async function submit() {
+    await save({
+      data: {
+        ...(editingId ? { id: editingId } : {}),
+        period: form.label.trim(),
+        targetAmount: amountValue,
+        metric: form.metric,
+        label: form.label.trim(),
+        periodStart: form.periodStart || null,
+        periodEnd: form.periodEnd || null,
+        scopeField: form.scopeField || null,
+        scopeValue: form.scopeValue || null,
+      },
+    });
+    setForm(EMPTY_TARGET);
+    setEditingId(null);
+    await invalidate();
+    toast.success(editingId ? "Target updated" : "Target added");
+  }
 
   return (
-    <Panel title="Targets" hint="A goal per period, measured on deal value or weighted value.">
+    <Panel
+      title="Targets"
+      hint="A goal per period, measured on deal value or weighted value of open deals."
+    >
       <ul className="space-y-1.5">
         {data.targets.length === 0 ? (
           <li className="text-[13px] text-muted-foreground">No targets yet.</li>
         ) : null}
         {data.targets.map((target) => (
           <li key={target.id} className="flex items-center gap-2 text-[13px]">
-            <span className="w-24 shrink-0 truncate">{target.period}</span>
-            <span className="flex-1 tabular-nums">
-              {target.target_amount.toLocaleString()} ·{" "}
-              {labelFor(data.fieldLabels, target.metric)}
-            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{targetTitle(target)}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {formatMoney(target.target_amount)} · {labelFor(data.fieldLabels, target.metric)} ·{" "}
+                {periodText(target)}
+                {target.scope_field && target.scope_value
+                  ? ` · ${labelFor(data.fieldLabels, target.scope_field)}: ${target.scope_value}`
+                  : ""}
+              </div>
+            </div>
             <Button
               size="sm"
               variant="ghost"
+              onClick={() => {
+                setEditingId(target.id);
+                setForm({
+                  label: target.label ?? target.period,
+                  amount: String(target.target_amount),
+                  metric: target.metric === "weighted_value" ? "weighted_value" : "deal_value",
+                  periodStart: target.period_start ?? "",
+                  periodEnd: target.period_end ?? "",
+                  scopeField: (target.scope_field as ScopeField | null) ?? "",
+                  scopeValue: target.scope_value ?? "",
+                });
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Remove ${targetTitle(target)}`}
               onClick={async () => {
+                if (editingId === target.id) {
+                  setEditingId(null);
+                  setForm(EMPTY_TARGET);
+                }
                 await remove({ data: { id: target.id } });
                 await invalidate();
               }}
@@ -324,49 +415,111 @@ function Targets({ data }: { data: PipelineData }) {
           </li>
         ))}
       </ul>
-      <div className="flex flex-wrap gap-2">
-        <Input
-          className="h-8 w-28 text-[13px]"
-          placeholder="Period"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-        />
-        <Input
-          className="h-8 w-32 text-[13px]"
-          placeholder="Amount"
-          inputMode="numeric"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-        <select
-          className="h-8 rounded-md border border-input bg-background px-2 text-[13px]"
-          value={metric}
-          onChange={(e) => setMetric(e.target.value as "deal_value" | "weighted_value")}
-          aria-label="Measured on"
-        >
-          <option value="deal_value">{labelFor(data.fieldLabels, "deal_value")}</option>
-          <option value="weighted_value">{labelFor(data.fieldLabels, "weighted_value")}</option>
-        </select>
-        <Button
-          size="sm"
-          disabled={!period.trim() || !amount.trim()}
-          onClick={async () => {
-            const value = Number(amount.replace(/[^0-9.]/g, ""));
-            if (!Number.isFinite(value)) {
-              toast.error("Enter a number for the amount");
-              return;
+
+      <div className="space-y-2 border-t pt-3">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="h-8 w-40 text-[13px]"
+            placeholder="Target name"
+            aria-label="Target name"
+            value={form.label}
+            onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+          />
+          <Input
+            className="h-8 w-32 text-[13px]"
+            placeholder="Amount"
+            aria-label="Target amount"
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+          />
+          <select
+            className="h-8 rounded-md border border-input bg-background px-2 text-[13px]"
+            value={form.metric}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, metric: e.target.value as TargetForm["metric"] }))
             }
-            await save({
-              data: { period: period.trim(), targetAmount: value, metric, label: period.trim() },
-            });
-            setPeriod("");
-            setAmount("");
-            await invalidate();
-          }}
-        >
-          Add
-        </Button>
+            aria-label="Measured on"
+          >
+            <option value="deal_value">{labelFor(data.fieldLabels, "deal_value")}</option>
+            <option value="weighted_value">{labelFor(data.fieldLabels, "weighted_value")}</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            className="h-8 w-36 text-[13px]"
+            type="date"
+            aria-label="Period start"
+            value={form.periodStart}
+            onChange={(e) => setForm((f) => ({ ...f, periodStart: e.target.value }))}
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <Input
+            className="h-8 w-36 text-[13px]"
+            type="date"
+            aria-label="Period end"
+            value={form.periodEnd}
+            onChange={(e) => setForm((f) => ({ ...f, periodEnd: e.target.value }))}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            className="h-8 rounded-md border border-input bg-background px-2 text-[13px]"
+            value={form.scopeField}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                scopeField: e.target.value as TargetForm["scopeField"],
+                scopeValue: "",
+              }))
+            }
+            aria-label="Applies to"
+          >
+            <option value="">Whole pipeline</option>
+            {SCOPE_FIELDS.map((field) => (
+              <option key={field} value={field}>
+                {labelFor(data.fieldLabels, field)}
+              </option>
+            ))}
+          </select>
+          {form.scopeField ? (
+            <select
+              className="h-8 rounded-md border border-input bg-background px-2 text-[13px]"
+              value={form.scopeValue}
+              onChange={(e) => setForm((f) => ({ ...f, scopeValue: e.target.value }))}
+              aria-label="Slice value"
+            >
+              <option value="">Choose a value…</option>
+              {scopeChoices.map((choice) => (
+                <option key={choice.id} value={choice.value}>
+                  {choice.label || choice.value}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+        {problems.length > 0 && (form.label || form.amount) ? (
+          <p className="text-xs text-destructive">{problems[0]}</p>
+        ) : null}
+        <div className="flex items-center gap-2">
+          <Button size="sm" disabled={problems.length > 0} onClick={submit}>
+            {editingId ? "Save target" : "Add target"}
+          </Button>
+          {editingId ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditingId(null);
+                setForm(EMPTY_TARGET);
+              }}
+            >
+              Cancel
+            </Button>
+          ) : null}
+        </div>
       </div>
     </Panel>
   );
 }
+

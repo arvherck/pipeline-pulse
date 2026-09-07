@@ -61,13 +61,30 @@ export type Picklist = {
   position: number;
 };
 
+export type TargetMetric = "deal_value" | "weighted_value";
+
 export type Target = {
   id: string;
   period: string;
   target_amount: number;
   metric: string;
   label: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  scope_field: string | null;
+  scope_value: string | null;
 };
+
+export type Snapshot = {
+  id: string;
+  taken_on: string;
+  metric: string;
+  scope_field: string;
+  scope_value: string;
+  total: number;
+  open_count: number;
+};
+
 
 export type FieldChange = {
   id: string;
@@ -86,6 +103,8 @@ export type PipelineData = {
   fieldLabels: FieldLabel[];
   picklists: Picklist[];
   targets: Target[];
+  snapshots: Snapshot[];
+
   changes: FieldChange[];
 };
 

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
     ],
   }),
   beforeLoad: () => {
-    throw redirect({ to: "/board" });
+    throw redirect({ to: "/dashboard" });
   },
   component: () => null,
 });
