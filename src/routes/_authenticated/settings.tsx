@@ -5,17 +5,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { ManageLanesPanel } from "@/components/manage-lanes-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  deleteLane,
   deletePicklistValue,
   deleteTarget,
   saveFieldLabel,
-  saveLane,
   savePicklistValue,
   saveTarget,
 } from "@/lib/pipeline.functions";
+
 import {
   IMPORT_FIELDS,
   PICKLIST_FIELDS,
