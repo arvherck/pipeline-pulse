@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedBoardRouteImport } from './routes/_authenticated/board'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTableRouteImport } from './routes/_authenticated/table'
 
 const IndexRoute = IndexRouteImport.update({
@@ -40,6 +41,11 @@ const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
   path: '/import',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTableRoute = AuthenticatedTableRouteImport.update({
   id: '/table',
   path: '/table',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/board': typeof AuthenticatedBoardRoute
   '/import': typeof AuthenticatedImportRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/table': typeof AuthenticatedTableRoute
 }
 export interface FileRoutesByTo {
@@ -58,6 +65,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/board': typeof AuthenticatedBoardRoute
   '/import': typeof AuthenticatedImportRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/table': typeof AuthenticatedTableRoute
 }
 export interface FileRoutesById {
@@ -67,13 +75,14 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/board': typeof AuthenticatedBoardRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/table': typeof AuthenticatedTableRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/board' | '/import' | '/table'
+  fullPaths: '/' | '/auth' | '/board' | '/import' | '/settings' | '/table'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/board' | '/import' | '/table'
+  to: '/' | '/auth' | '/board' | '/import' | '/settings' | '/table'
   id:
     | '__root__'
     | '/'
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/board'
     | '/_authenticated/import'
+    | '/_authenticated/settings'
     | '/_authenticated/table'
   fileRoutesById: FileRoutesById
 }
@@ -127,6 +137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/table': {
       id: '/_authenticated/table'
       path: '/table'
@@ -140,12 +157,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBoardRoute: typeof AuthenticatedBoardRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTableRoute: typeof AuthenticatedTableRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBoardRoute: AuthenticatedBoardRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTableRoute: AuthenticatedTableRoute,
 }
 
