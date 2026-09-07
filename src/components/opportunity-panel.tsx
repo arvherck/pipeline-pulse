@@ -97,6 +97,8 @@ export function OpportunityPanel({
   const flipAction = useServerFn(toggleAction);
   const removeAction = useServerFn(deleteAction);
   const saveOpportunity = useServerFn(updateOpportunity);
+  const moveLane = useServerFn(setOpportunityLane);
+
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
