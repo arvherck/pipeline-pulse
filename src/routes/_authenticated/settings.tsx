@@ -19,10 +19,18 @@ import {
 import {
   IMPORT_FIELDS,
   PICKLIST_FIELDS,
+  formatMoney,
   labelFor,
   type PipelineData,
 } from "@/lib/pipeline-types";
+import {
+  SCOPE_FIELDS,
+  periodText,
+  targetTitle,
+  type ScopeField,
+} from "@/lib/targets";
 import { pipelineQueryOptions, useInvalidatePipeline } from "@/lib/use-pipeline";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
