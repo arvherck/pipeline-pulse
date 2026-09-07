@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/board")({
 });
 
 function BoardPage() {
-  const { data } = useSuspenseQuery(pipelineQueryOptions());
+  const { data } = useSuspenseQuery(pipelineQueryOptions);
 
   return (
     <AppShell>
