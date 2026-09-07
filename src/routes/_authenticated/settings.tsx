@@ -105,154 +105,33 @@ function FieldLabels({ data }: { data: PipelineData }) {
 }
 
 function Lanes({ data }: { data: PipelineData }) {
-  const save = useServerFn(saveLane);
-  const remove = useServerFn(deleteLane);
-  const invalidate = useInvalidatePipeline();
-  const [label, setLabel] = useState("");
-  const [color, setColor] = useState("#64748b");
+  const [open, setOpen] = useState(false);
 
   return (
     <Panel title="Lanes" hint="Columns on the board. One lane is the landing spot for new deals.">
-      <ul className="space-y-1.5">
-        {data.lanes.map((lane, index) => (
-          <li key={lane.id} className="flex items-center gap-2">
-            <input
-              type="color"
-              className="size-7 shrink-0 rounded border bg-background"
-              value={lane.color}
-              onChange={async (e) => {
-                await save({
-                  data: {
-                    id: lane.id,
-                    label: lane.label,
-                    position: lane.position,
-                    color: e.target.value,
-                    isDefault: lane.is_default,
-                  },
-                });
-                await invalidate();
-              }}
-              aria-label={`Colour for ${lane.label}`}
+      <ul className="space-y-1">
+        {data.lanes.map((lane) => (
+          <li key={lane.id} className="flex items-center gap-2 text-[13px]">
+            <span
+              className="inline-block size-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: lane.color }}
+              aria-hidden
             />
-            <Input
-              className="h-8 text-[13px]"
-              defaultValue={lane.label}
-              onBlur={async (e) => {
-                const value = e.target.value.trim();
-                if (!value || value === lane.label) return;
-                await save({
-                  data: {
-                    id: lane.id,
-                    label: value,
-                    position: lane.position,
-                    color: lane.color,
-                    isDefault: lane.is_default,
-                  },
-                });
-                await invalidate();
-              }}
-            />
-            <Button
-              size="sm"
-              variant={lane.is_default ? "secondary" : "ghost"}
-              onClick={async () => {
-                await save({
-                  data: {
-                    id: lane.id,
-                    label: lane.label,
-                    position: lane.position,
-                    color: lane.color,
-                    isDefault: true,
-                  },
-                });
-                await invalidate();
-              }}
-            >
-              {lane.is_default ? "Default" : "Make default"}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={index === 0}
-              onClick={async () => {
-                const above = data.lanes[index - 1];
-                if (!above) return;
-                await save({
-                  data: {
-                    id: lane.id,
-                    label: lane.label,
-                    position: above.position,
-                    color: lane.color,
-                    isDefault: lane.is_default,
-                  },
-                });
-                await save({
-                  data: {
-                    id: above.id,
-                    label: above.label,
-                    position: lane.position,
-                    color: above.color,
-                    isDefault: above.is_default,
-                  },
-                });
-                await invalidate();
-              }}
-            >
-              ↑
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={async () => {
-                try {
-                  await remove({ data: { id: lane.id } });
-                  await invalidate();
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not remove lane");
-                }
-              }}
-            >
-              ✕
-            </Button>
+            <span>{lane.label}</span>
+            {lane.is_default && <span className="text-[11px] text-muted-foreground">default</span>}
           </li>
         ))}
       </ul>
-      <div className="flex gap-2 pt-1">
-        <input
-          type="color"
-          className="size-8 shrink-0 rounded border bg-background"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          aria-label="New lane colour"
-        />
-        <Input
-          className="h-8 text-[13px]"
-          placeholder="New lane name"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-        />
-        <Button
-          size="sm"
-          disabled={!label.trim()}
-          onClick={async () => {
-            await save({
-              data: {
-                label: label.trim(),
-                position: data.lanes.length,
-                color,
-                isDefault: false,
-              },
-            });
-            setLabel("");
-            await invalidate();
-          }}
-        >
-          Add
+      <div className="pt-1">
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          Manage lanes
         </Button>
       </div>
+      <ManageLanesPanel data={data} open={open} onClose={() => setOpen(false)} />
     </Panel>
   );
 }
+
 
 function Picklists({ data }: { data: PipelineData }) {
   const save = useServerFn(savePicklistValue);
