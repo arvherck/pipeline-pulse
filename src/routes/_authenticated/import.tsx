@@ -5,6 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { LastImportNote } from "@/components/last-import-note";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { importOpportunities } from "@/lib/pipeline.functions";
