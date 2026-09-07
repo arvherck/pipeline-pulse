@@ -14,7 +14,263 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      actions: {
+        Row: {
+          created_at: string
+          done: boolean
+          due_date: string | null
+          id: string
+          opportunity_id: string
+          owner: string | null
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          due_date?: string | null
+          id?: string
+          opportunity_id: string
+          owner?: string | null
+          text: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          due_date?: string | null
+          id?: string
+          opportunity_id?: string
+          owner?: string | null
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_labels: {
+        Row: {
+          display_label: string
+          field_name: string
+          updated_at: string
+        }
+        Insert: {
+          display_label: string
+          field_name: string
+          updated_at?: string
+        }
+        Update: {
+          display_label?: string
+          field_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lanes: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          position: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          position?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      opportunities: {
+        Row: {
+          account_name: string | null
+          age_days: number | null
+          category: string | null
+          close_date: string | null
+          comment: string | null
+          contract_end: string | null
+          contract_start: string | null
+          created_at: string
+          custom_fields: Json
+          deal_value: number | null
+          fiscal_period: string | null
+          id: string
+          is_open: boolean
+          last_stage_change: string | null
+          name: string
+          owner: string | null
+          probability: number | null
+          quality_score: number | null
+          region: string | null
+          segment: string | null
+          stage: string | null
+          stage_duration_days: number | null
+          status_notes: string | null
+          updated_at: string
+          weighted_value: number | null
+        }
+        Insert: {
+          account_name?: string | null
+          age_days?: number | null
+          category?: string | null
+          close_date?: string | null
+          comment?: string | null
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string
+          custom_fields?: Json
+          deal_value?: number | null
+          fiscal_period?: string | null
+          id: string
+          is_open?: boolean
+          last_stage_change?: string | null
+          name?: string
+          owner?: string | null
+          probability?: number | null
+          quality_score?: number | null
+          region?: string | null
+          segment?: string | null
+          stage?: string | null
+          stage_duration_days?: number | null
+          status_notes?: string | null
+          updated_at?: string
+          weighted_value?: number | null
+        }
+        Update: {
+          account_name?: string | null
+          age_days?: number | null
+          category?: string | null
+          close_date?: string | null
+          comment?: string | null
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string
+          custom_fields?: Json
+          deal_value?: number | null
+          fiscal_period?: string | null
+          id?: string
+          is_open?: boolean
+          last_stage_change?: string | null
+          name?: string
+          owner?: string | null
+          probability?: number | null
+          quality_score?: number | null
+          region?: string | null
+          segment?: string | null
+          stage?: string | null
+          stage_duration_days?: number | null
+          status_notes?: string | null
+          updated_at?: string
+          weighted_value?: number | null
+        }
+        Relationships: []
+      }
+      opportunity_status: {
+        Row: {
+          lane_id: string | null
+          notes: string | null
+          opportunity_id: string
+          updated_at: string
+        }
+        Insert: {
+          lane_id?: string | null
+          notes?: string | null
+          opportunity_id: string
+          updated_at?: string
+        }
+        Update: {
+          lane_id?: string | null
+          notes?: string | null
+          opportunity_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_status_lane_id_fkey"
+            columns: ["lane_id"]
+            isOneToOne: false
+            referencedRelation: "lanes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_status_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: true
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      picklists: {
+        Row: {
+          created_at: string
+          field_name: string
+          id: string
+          label: string
+          position: number
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          id?: string
+          label: string
+          position?: number
+          value: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          id?: string
+          label?: string
+          position?: number
+          value?: string
+        }
+        Relationships: []
+      }
+      targets: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          metric: string
+          period: string
+          target_amount: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          metric?: string
+          period: string
+          target_amount?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          metric?: string
+          period?: string
+          target_amount?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
