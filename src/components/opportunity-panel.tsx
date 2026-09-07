@@ -33,7 +33,7 @@ import {
   type Opportunity,
   type PipelineData,
 } from "@/lib/pipeline-types";
-import { useInvalidatePipeline } from "@/lib/use-pipeline";
+import { laneOf, useInvalidatePipeline } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
 
 type Draft = {
