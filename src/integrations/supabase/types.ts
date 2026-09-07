@@ -181,6 +181,41 @@ export type Database = {
         }
         Relationships: []
       }
+      opportunity_field_changes: {
+        Row: {
+          changed_at: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          opportunity_id: string
+        }
+        Insert: {
+          changed_at?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          opportunity_id: string
+        }
+        Update: {
+          changed_at?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_field_changes_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opportunity_status: {
         Row: {
           lane_id: string | null

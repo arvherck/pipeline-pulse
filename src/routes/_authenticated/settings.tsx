@@ -77,22 +77,25 @@ function FieldLabels({ data }: { data: PipelineData }) {
   const invalidate = useInvalidatePipeline();
   const [draft, setDraft] = useState<Record<string, string>>({});
 
+  const customKeys = [
+    ...new Set(data.opportunities.flatMap((o) => Object.keys(o.custom_fields ?? {}))),
+  ].sort((a, b) => a.localeCompare(b));
+  const keys = [...IMPORT_FIELDS.map((f) => f.key), ...customKeys];
+
   return (
     <Panel title="Field names" hint="Rename any column to match your own wording.">
       <div className="max-h-80 space-y-1.5 overflow-y-auto">
-        {IMPORT_FIELDS.map((field) => (
-          <div key={field.key} className="flex items-center gap-2">
-            <span className="w-40 shrink-0 truncate text-xs text-muted-foreground">
-              {field.key}
-            </span>
+        {keys.map((key) => (
+          <div key={key} className="flex items-center gap-2">
+            <span className="w-40 shrink-0 truncate text-xs text-muted-foreground">{key}</span>
             <Input
               className="h-8 text-[13px]"
-              value={draft[field.key] ?? labelFor(data.fieldLabels, field.key)}
-              onChange={(e) => setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))}
+              value={draft[key] ?? labelFor(data.fieldLabels, key)}
+              onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
               onBlur={async (e) => {
                 const value = e.target.value.trim();
-                if (!value || value === labelFor(data.fieldLabels, field.key)) return;
-                await save({ data: { fieldName: field.key, displayLabel: value } });
+                if (!value || value === labelFor(data.fieldLabels, key)) return;
+                await save({ data: { fieldName: key, displayLabel: value } });
                 await invalidate();
                 toast.success("Name updated");
               }}
@@ -103,6 +106,7 @@ function FieldLabels({ data }: { data: PipelineData }) {
     </Panel>
   );
 }
+
 
 function Lanes({ data }: { data: PipelineData }) {
   const [open, setOpen] = useState(false);
@@ -160,12 +164,91 @@ function Picklists({ data }: { data: PipelineData }) {
         {values.length === 0 ? (
           <li className="text-[13px] text-muted-foreground">No values yet.</li>
         ) : null}
-        {values.map((item) => (
-          <li key={item.id} className="flex items-center gap-2 text-[13px]">
-            <span className="flex-1 truncate">{item.label || item.value}</span>
+        {values.map((item, index) => (
+          <li key={item.id} className="flex items-center gap-1.5 text-[13px]">
+            <Input
+              className="h-8 text-[13px]"
+              defaultValue={item.label || item.value}
+              aria-label={`Label for ${item.value}`}
+              onBlur={async (e) => {
+                const next = e.target.value.trim();
+                if (!next || next === item.label) return;
+                await save({
+                  data: {
+                    fieldName: item.field_name,
+                    value: item.value,
+                    label: next,
+                    position: item.position,
+                  },
+                });
+                await invalidate();
+              }}
+            />
             <Button
               size="sm"
               variant="ghost"
+              className="px-2"
+              disabled={index === 0}
+              aria-label={`Move ${item.value} up`}
+              onClick={async () => {
+                const above = values[index - 1];
+                if (!above) return;
+                await save({
+                  data: {
+                    fieldName: item.field_name,
+                    value: item.value,
+                    label: item.label,
+                    position: above.position,
+                  },
+                });
+                await save({
+                  data: {
+                    fieldName: above.field_name,
+                    value: above.value,
+                    label: above.label,
+                    position: item.position,
+                  },
+                });
+                await invalidate();
+              }}
+            >
+              ↑
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="px-2"
+              disabled={index === values.length - 1}
+              aria-label={`Move ${item.value} down`}
+              onClick={async () => {
+                const below = values[index + 1];
+                if (!below) return;
+                await save({
+                  data: {
+                    fieldName: item.field_name,
+                    value: item.value,
+                    label: item.label,
+                    position: below.position,
+                  },
+                });
+                await save({
+                  data: {
+                    fieldName: below.field_name,
+                    value: below.value,
+                    label: below.label,
+                    position: item.position,
+                  },
+                });
+                await invalidate();
+              }}
+            >
+              ↓
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="px-2"
+              aria-label={`Remove ${item.value}`}
               onClick={async () => {
                 await remove({ data: { id: item.id } });
                 await invalidate();
@@ -176,6 +259,7 @@ function Picklists({ data }: { data: PipelineData }) {
           </li>
         ))}
       </ul>
+
       <div className="flex gap-2">
         <Input
           className="h-8 text-[13px]"

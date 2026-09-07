@@ -2,13 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { opportunityPatchSchema } from "./opportunity-schema";
 import type { PipelineData } from "./pipeline-types";
 
 export const getPipeline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PipelineData> => {
     const { supabase } = context;
-    const [opportunities, lanes, statuses, actions, fieldLabels, picklists, targets] =
+    const [opportunities, lanes, statuses, actions, fieldLabels, picklists, targets, changes] =
       await Promise.all([
         supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
         supabase.from("lanes").select("*").order("position", { ascending: true }),
@@ -17,6 +18,11 @@ export const getPipeline = createServerFn({ method: "GET" })
         supabase.from("field_labels").select("field_name, display_label"),
         supabase.from("picklists").select("*").order("position", { ascending: true }),
         supabase.from("targets").select("*").order("period", { ascending: true }),
+        supabase
+          .from("opportunity_field_changes")
+          .select("*")
+          .order("changed_at", { ascending: false })
+          .limit(500),
       ]);
 
     const firstError =
@@ -26,7 +32,8 @@ export const getPipeline = createServerFn({ method: "GET" })
       actions.error ??
       fieldLabels.error ??
       picklists.error ??
-      targets.error;
+      targets.error ??
+      changes.error;
     if (firstError) throw new Error(firstError.message);
 
     return {
@@ -37,8 +44,77 @@ export const getPipeline = createServerFn({ method: "GET" })
       fieldLabels: (fieldLabels.data ?? []) as PipelineData["fieldLabels"],
       picklists: (picklists.data ?? []) as PipelineData["picklists"],
       targets: (targets.data ?? []) as PipelineData["targets"],
+      changes: (changes.data ?? []) as PipelineData["changes"],
     };
   });
+
+export const updateOpportunity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({ opportunityId: z.string().min(1), patch: opportunityPatchSchema })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: current, error: readError } = await supabase
+      .from("opportunities")
+      .select("*")
+      .eq("id", data.opportunityId)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!current) throw new Error("That opportunity no longer exists");
+
+    const patch = data.patch;
+    const asText = (value: unknown) =>
+      value == null || value === "" ? null : typeof value === "boolean" ? String(value) : String(value);
+
+    const updates: Record<string, unknown> = {};
+    const log: Array<{ field_name: string; old_value: string | null; new_value: string | null }> = [];
+
+    for (const [key, rawNext] of Object.entries(patch)) {
+      if (key === "custom_fields") continue;
+      const next = rawNext === "" ? null : rawNext;
+      const previous = (current as Record<string, unknown>)[key] ?? null;
+      const previousText = asText(previous);
+      const nextText = asText(next);
+      if (previousText === nextText) continue;
+      updates[key] = next;
+      log.push({ field_name: key, old_value: previousText, new_value: nextText });
+    }
+
+    const previousCustom = ((current as Record<string, unknown>)["custom_fields"] ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const nextCustom = patch.custom_fields ?? {};
+    const customKeys = new Set([...Object.keys(previousCustom), ...Object.keys(nextCustom)]);
+    let customChanged = false;
+    for (const key of customKeys) {
+      const previousText = asText(previousCustom[key]);
+      const nextText = asText(nextCustom[key]);
+      if (previousText === nextText) continue;
+      customChanged = true;
+      log.push({ field_name: key, old_value: previousText, new_value: nextText });
+    }
+    if (customChanged) updates["custom_fields"] = nextCustom;
+
+    if (log.length === 0) return { ok: true, changed: 0 };
+
+    const { error: updateError } = await supabase
+      .from("opportunities")
+      .update(updates as never)
+      .eq("id", data.opportunityId);
+    if (updateError) throw new Error(updateError.message);
+
+    const { error: logError } = await supabase
+      .from("opportunity_field_changes")
+      .insert(log.map((entry) => ({ ...entry, opportunity_id: data.opportunityId })));
+    if (logError) throw new Error(logError.message);
+
+    return { ok: true, changed: log.length };
+  });
+
 
 export const setOpportunityLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
