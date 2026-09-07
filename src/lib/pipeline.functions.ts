@@ -297,7 +297,14 @@ export const importOpportunities = createServerFn({ method: "POST" })
       placed = missing.length;
     }
 
+    // Record the run so the app can show when data last came in.
+    const { error: runError } = await supabase
+      .from("import_runs")
+      .insert({ row_count: rows.length });
+    if (runError) throw new Error(runError.message);
+
     await recordSnapshots(supabase);
+
 
     return { imported: rows.length, placed };
 
