@@ -56,8 +56,13 @@ export function StatsStrip({ data }: { data: PipelineData }) {
 }
 
 function Stat({ label, value, index, accent }: { label: string; value: string; index: string; accent: "primary" | "signal" | "technical" }) {
+  const accentClass = {
+    primary: "border-l-primary",
+    signal: "border-l-signal",
+    technical: "border-l-technical",
+  }[accent];
   return (
-    <div className={`tech-panel min-h-20 border-l-4 border-l-${accent} px-4 py-3`}>
+    <div className={`tech-panel min-h-20 border-l-4 px-4 py-3 ${accentClass}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="tech-label">{label}</div>
         <span className="font-display text-[10px] font-bold text-muted-foreground">/{index}</span>
