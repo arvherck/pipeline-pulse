@@ -55,12 +55,12 @@ function AuthPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-lg font-semibold tracking-tight">Pipeline Tracker</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Internal access only.</p>
+        <div className="mb-6 flex items-center gap-3"><span className="size-3 bg-primary" /><div><div className="tech-label text-primary">System access // ops 01</div><h1 className="font-display text-3xl font-bold uppercase">Pipeline Tracker</h1></div></div>
+        <p className="text-sm text-muted-foreground">Internal access only.</p>
 
-        <form onSubmit={signIn} className="mt-6 space-y-4 rounded-md border bg-card p-5">
+        <form onSubmit={signIn} className="tech-panel mt-6 space-y-4 border-t-2 border-t-primary p-5">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -90,7 +90,7 @@ function AuthPage() {
 
         <div className="mt-4 text-xs text-muted-foreground">
           {setupOpen ? (
-            <div className="rounded-md border bg-card p-4">
+            <div className="tech-panel p-4">
               <p>
                 First-time setup only: enter the email and password above, then create the single
                 account for this tool.
