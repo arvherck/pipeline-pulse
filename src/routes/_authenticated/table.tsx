@@ -31,6 +31,7 @@ function TablePage() {
 
   return (
     <AppShell>
+      <header className="border-b pb-4"><div className="tech-label mb-1 text-primary">Record matrix // query ready</div><h1 className="font-display text-3xl font-bold uppercase">Table</h1></header>
       <StatsStrip data={data} />
       <PipelineTable data={data} />
     </AppShell>

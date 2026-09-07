@@ -127,7 +127,8 @@ function ImportWizard({ data }: { data: PipelineData }) {
     <div className="space-y-5">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold">Import data</h1>
+          <div className="tech-label mb-1 text-primary">Data ingress // local parse</div>
+          <h1 className="font-display text-3xl font-bold uppercase">Import data</h1>
           <p className="text-[13px] text-muted-foreground">
             Drop a .xlsx or .csv export below. The file is read on this computer only — nothing is
             uploaded except the rows you confirm.
@@ -150,11 +151,12 @@ function ImportWizard({ data }: { data: PipelineData }) {
           if (file) void readFile(file);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed bg-card px-6 py-10 text-center",
-          dragging && "border-primary bg-accent/40",
+          "tech-panel flex min-h-56 cursor-pointer flex-col items-center justify-center border-2 border-dashed border-primary/40 bg-card/70 px-6 py-10 text-center transition-colors",
+          dragging && "border-primary bg-accent/50",
         )}
       >
-        <span className="text-[13px] font-medium">Drop your spreadsheet here</span>
+        <span className="mb-3 flex size-10 items-center justify-center border border-primary font-display text-xl font-bold text-primary">+</span>
+        <span className="font-display text-sm font-bold uppercase">Drop your spreadsheet here</span>
         <span className="mt-1 text-xs text-muted-foreground">
           or click to choose a .xlsx or .csv file
         </span>
@@ -177,16 +179,16 @@ function ImportWizard({ data }: { data: PipelineData }) {
       {headers.length > 0 ? (
         <>
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold">Match your columns</h2>
+             <h2 className="font-display text-sm font-bold uppercase">Match your columns</h2>
             {!hasId ? (
               <p className="text-xs text-destructive">
                 Map one column to the ID field — it keeps repeat imports from duplicating rows.
               </p>
             ) : null}
-            <div className="overflow-hidden rounded-md border bg-card">
+             <div className="tech-panel overflow-hidden">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b bg-muted/60 text-left">
+                   <tr className="border-b-2 border-primary/30 bg-muted/70 text-left font-display text-[10px] uppercase">
                     <th className="px-2.5 py-2 font-medium">Column in your file</th>
                     <th className="px-2.5 py-2 font-medium">Goes to</th>
                     <th className="px-2.5 py-2 font-medium">Custom name</th>
@@ -233,8 +235,8 @@ function ImportWizard({ data }: { data: PipelineData }) {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold">Preview (first 5 rows)</h2>
-            <div className="overflow-x-auto rounded-md border bg-card">
+             <h2 className="font-display text-sm font-bold uppercase">Preview // first 5 rows</h2>
+             <div className="tech-panel overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="border-b bg-muted/60 text-left">

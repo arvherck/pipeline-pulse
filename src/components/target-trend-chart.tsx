@@ -39,36 +39,36 @@ export function TargetTrendChart({
     <div style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-          <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="2 4" vertical={false} />
+          <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" vertical={false} />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-            stroke="hsl(var(--border))"
+            tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+            stroke="var(--border)"
           />
           <YAxis
-            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-            stroke="hsl(var(--border))"
+            tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+            stroke="var(--border)"
             width={64}
             tickFormatter={(value: number) => formatMoney(value)}
           />
           <Tooltip
             contentStyle={{
-              background: "hsl(var(--popover))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: 6,
+              background: "var(--popover)",
+              border: "1px solid var(--border)",
+              borderRadius: 2,
               fontSize: 12,
             }}
             formatter={(value: number) => [formatMoney(value), "Open pipeline"]}
           />
           <ReferenceLine
             y={Number(target.target_amount)}
-            stroke="hsl(var(--primary))"
+            stroke="var(--signal)"
             strokeDasharray="4 4"
           />
           <Line
             type="monotone"
             dataKey="total"
-            stroke="hsl(var(--primary))"
+            stroke="var(--primary)"
             strokeWidth={2}
             dot={points.length < 30}
           />

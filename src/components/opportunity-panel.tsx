@@ -190,6 +190,7 @@ export function OpportunityPanel({
         {opportunity && draft ? (
           <>
             <SheetHeader className="pb-0">
+              <div className="tech-label text-primary">Opportunity record // {opportunity.id}</div>
               <SheetTitle className="text-base leading-snug">{savedOpportunity?.name}</SheetTitle>
               <p className="text-xs text-muted-foreground">
                 {savedOpportunity?.account_name ?? "No client"} · {opportunity.id} · updated{" "}
@@ -309,7 +310,7 @@ export function OpportunityPanel({
                   </div>
                 </section>
 
-                <div className="sticky bottom-0 -mx-4 flex items-center gap-2 border-t bg-background px-4 py-3">
+                <div className="sticky bottom-0 -mx-4 flex items-center gap-2 border-t-2 border-primary/30 bg-background/95 px-4 py-3 backdrop-blur-sm">
                   <Button size="sm" disabled={hasErrors || !dirty || saving} onClick={save}>
                     {saving ? "Saving…" : "Save"}
                   </Button>

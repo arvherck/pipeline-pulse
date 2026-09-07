@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { LogOut } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -29,15 +30,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 md:h-11 md:flex-nowrap md:gap-6 md:py-0">
-          <span className="shrink-0 text-sm font-semibold tracking-tight">Pipeline Tracker</span>
-          <nav className="flex min-w-0 flex-wrap items-center gap-1">
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5 md:min-h-16 md:flex-nowrap lg:px-8">
+          <div className="mr-1 flex shrink-0 items-center gap-3">
+            <span className="relative flex size-3 items-center justify-center" aria-hidden>
+              <span className="absolute size-3 animate-ping rounded-full bg-primary/20" />
+              <span className="size-2 bg-primary" />
+            </span>
+            <div>
+              <span className="block font-display text-base font-bold uppercase leading-none">Pipeline Tracker</span>
+              <span className="tech-label text-primary">System online // ops 01</span>
+            </div>
+          </div>
+          <nav className="flex min-w-0 flex-wrap items-center gap-1" aria-label="Main navigation">
             {NAV.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className="rounded px-2.5 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground data-[status=active]:font-medium"
+                className="relative px-2.5 py-2 font-display text-xs font-semibold uppercase text-muted-foreground transition-colors hover:text-foreground data-[status=active]:text-primary data-[status=active]:after:absolute data-[status=active]:after:inset-x-2.5 data-[status=active]:after:-bottom-2.5 data-[status=active]:after:h-0.5 data-[status=active]:after:bg-primary"
               >
                 {item.label}
               </Link>
@@ -46,16 +56,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           <LastImportNote variant="short" className="hidden lg:inline" />
           <Button
             variant="ghost"
-            size="sm"
-            className="ml-auto h-7 shrink-0 text-xs text-muted-foreground"
+            size="icon"
+            className="ml-auto size-8 shrink-0 text-muted-foreground"
             onClick={signOut}
+            aria-label="Sign out"
+            title="Sign out"
           >
-            Sign out
+            <LogOut />
           </Button>
         </div>
       </header>
 
-      <main className="px-4 py-4">{children}</main>
+      <main className="mx-auto w-full max-w-[1600px] space-y-5 px-5 py-6 lg:px-8">{children}</main>
     </div>
   );
 }

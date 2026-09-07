@@ -16,10 +16,10 @@ export function TargetCard({
   const attained = remaining <= 0;
 
   return (
-    <section className="rounded-md border bg-card p-3">
+    <section className="tech-panel border-t-2 border-t-signal p-4">
       <header className="flex items-baseline justify-between gap-2">
-        <h3 className="truncate text-sm font-semibold">{targetTitle(target)}</h3>
-        <span className={cn("text-sm font-semibold", attained && "text-primary")}>{percent}%</span>
+        <h3 className="truncate font-display text-sm font-bold uppercase">{targetTitle(target)}</h3>
+        <span className={cn("data-value text-lg font-bold", attained ? "text-primary" : "text-signal")}>{percent}%</span>
       </header>
       <p className="truncate text-xs text-muted-foreground">
         {labelFor(data.fieldLabels, target.metric)} · {periodText(target)}
@@ -28,29 +28,29 @@ export function TargetCard({
           : ""}
       </p>
 
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="mt-3 h-1.5 w-full overflow-hidden bg-muted">
         <div
-          className="h-full rounded-full bg-primary transition-[width]"
+          className="h-full bg-primary transition-[width]"
           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
         />
       </div>
 
-      <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+      <dl className="mt-3 grid grid-cols-3 gap-px bg-border text-xs">
         <div>
-          <dt className="text-muted-foreground">So far</dt>
-          <dd className="font-medium tabular-nums">{formatMoney(total)}</dd>
+          <dt className="tech-label bg-card px-2 pt-2">So far</dt>
+          <dd className="data-value bg-card px-2 pb-2 font-semibold">{formatMoney(total)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Target</dt>
-          <dd className="font-medium tabular-nums">{formatMoney(target.target_amount)}</dd>
+          <dt className="tech-label bg-card px-2 pt-2">Target</dt>
+          <dd className="data-value bg-card px-2 pb-2 font-semibold">{formatMoney(target.target_amount)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">{attained ? "Over by" : "Remaining"}</dt>
-          <dd className="font-medium tabular-nums">{formatMoney(Math.abs(remaining))}</dd>
+          <dt className="tech-label bg-card px-2 pt-2">{attained ? "Over by" : "Remaining"}</dt>
+          <dd className="data-value bg-card px-2 pb-2 font-semibold">{formatMoney(Math.abs(remaining))}</dd>
         </div>
       </dl>
 
-      <div className="mt-2 border-t pt-2">
+      <div className="mt-3 border-t pt-3">
         <TargetTrendChart data={data} target={target} height={compact ? 120 : 200} />
       </div>
     </section>
@@ -60,9 +60,9 @@ export function TargetCard({
 export function TargetGrid({ data }: { data: PipelineData }) {
   if (data.targets.length === 0) {
     return (
-      <p className="rounded-md border bg-card p-4 text-[13px] text-muted-foreground">
-        No targets yet. Add one in Settings to track progress here.
-      </p>
+      <div className="flex min-h-28 items-center justify-center border border-dashed border-primary/40 bg-card/60 p-6 text-center">
+        <div><div className="tech-label text-primary">Target channel // empty</div><p className="mt-1 text-[13px] text-muted-foreground">No targets yet. Add one in Settings to track progress here.</p></div>
+      </div>
     );
   }
   const compact = data.targets.length > 1;

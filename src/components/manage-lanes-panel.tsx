@@ -79,6 +79,7 @@ export function ManageLanesPanel({
     >
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
+          <div className="tech-label text-primary">Board configuration</div>
           <SheetTitle className="text-sm">Manage lanes</SheetTitle>
         </SheetHeader>
 
@@ -90,7 +91,7 @@ export function ManageLanesPanel({
           <ul className="space-y-1.5">
             {lanes.map((lane, index) => (
               <li key={lane.id} className="space-y-1.5">
-                <div className="flex items-center gap-1.5">
+                 <div className="tech-panel flex items-center gap-1.5 p-2">
                   <input
                     type="color"
                     className="size-7 shrink-0 rounded border bg-background"
@@ -171,7 +172,7 @@ export function ManageLanesPanel({
                 </div>
 
                 {pendingDelete?.id === lane.id && (
-                  <div className="space-y-2 rounded-md border bg-muted/40 p-2.5">
+                   <div className="space-y-2 border border-destructive/30 bg-destructive/5 p-2.5">
                     <p className="text-xs">
                       Delete “{lane.label}”. Move its {countFor(lane.id)} deal
                       {countFor(lane.id) === 1 ? "" : "s"} to:
