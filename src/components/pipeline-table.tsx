@@ -61,11 +61,23 @@ export function PipelineTable({ data }: { data: PipelineData }) {
     }
   }
 
+  function exportCsv() {
+    const header = [
+      ...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)),
+      labelFor(data.fieldLabels, "lane"),
+    ];
+    const body = rows.map((row) => [
+      ...TABLE_COLUMNS.map((key) => exportCell(row, key)),
+      laneOf(data, row.id)?.label ?? "",
+    ]);
+    downloadCsv(`pipeline-${todayStamp()}.csv`, toCsv(header, body));
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center">
         <Input
-          className="h-8 w-56 text-[13px]"
+          className="col-span-2 h-8 text-[13px] md:w-56"
           placeholder="Search deals, clients, owners…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -89,9 +101,10 @@ export function PipelineTable({ data }: { data: PipelineData }) {
           options={uniqueValues(data.opportunities, "segment")}
         />
         <select
-          className="h-8 rounded-md border border-input bg-card px-2 text-[13px]"
+          className="h-8 min-w-0 rounded-md border border-input bg-card px-2 text-[13px]"
           value={laneId}
           onChange={(e) => setLaneId(e.target.value)}
+          aria-label="Lane"
         >
           <option value="">All lanes</option>
           {data.lanes.map((lane) => (
@@ -100,14 +113,25 @@ export function PipelineTable({ data }: { data: PipelineData }) {
             </option>
           ))}
         </select>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="col-span-2 flex items-center gap-2 md:ml-auto">
           <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
           <Label htmlFor="open-only" className="text-[13px] text-muted-foreground">
             Open only
           </Label>
           <span className="text-xs tabular-nums text-muted-foreground">{rows.length} rows</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-8 shrink-0 md:ml-0"
+            onClick={exportCsv}
+            disabled={rows.length === 0}
+          >
+            <Download className="mr-1 size-3.5" aria-hidden />
+            Export CSV
+          </Button>
         </div>
       </div>
+
 
       <div className="overflow-x-auto rounded-md border bg-card">
         <table className="w-full border-collapse text-[13px]">
