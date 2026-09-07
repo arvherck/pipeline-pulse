@@ -275,12 +275,44 @@ export const saveLane = createServerFn({ method: "POST" })
 
 export const deleteLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z
+      .object({ id: z.string().uuid(), reassignToLaneId: z.string().uuid() })
+      .refine((v) => v.id !== v.reassignToLaneId, "Pick a different lane to move deals to")
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("lanes").delete().eq("id", data.id);
+    const { supabase } = context;
+    const { data: lanes, error: lanesError } = await supabase
+      .from("lanes")
+      .select("id, is_default");
+    if (lanesError) throw new Error(lanesError.message);
+    if ((lanes ?? []).length <= 1) throw new Error("You need at least one lane on the board");
+    const removed = (lanes ?? []).find((l) => l.id === data.id);
+    if (!removed) throw new Error("That lane no longer exists");
+    if (!(lanes ?? []).some((l) => l.id === data.reassignToLaneId)) {
+      throw new Error("The lane you picked no longer exists");
+    }
+
+    const { error: moveError } = await supabase
+      .from("opportunity_status")
+      .update({ lane_id: data.reassignToLaneId })
+      .eq("lane_id", data.id);
+    if (moveError) throw new Error(moveError.message);
+
+    if (removed.is_default) {
+      const { error: defaultError } = await supabase
+        .from("lanes")
+        .update({ is_default: true })
+        .eq("id", data.reassignToLaneId);
+      if (defaultError) throw new Error(defaultError.message);
+    }
+
+    const { error } = await supabase.from("lanes").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 export const saveTarget = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
