@@ -85,6 +85,11 @@ export type Snapshot = {
   open_count: number;
 };
 
+export type ImportRun = {
+  id: string;
+  imported_at: string;
+  row_count: number;
+};
 
 export type FieldChange = {
   id: string;
@@ -104,9 +109,10 @@ export type PipelineData = {
   picklists: Picklist[];
   targets: Target[];
   snapshots: Snapshot[];
-
+  importRuns: ImportRun[];
   changes: FieldChange[];
 };
+
 
 
 export type FieldKind = "text" | "number" | "date" | "boolean";
