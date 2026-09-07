@@ -5,25 +5,91 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { opportunityPatchSchema } from "./opportunity-schema";
 import type { PipelineData } from "./pipeline-types";
 
+/**
+ * Recompute today's open-pipeline totals and store one row per metric per
+ * slice, so the trend chart has a point per day. Re-running the same day
+ * overwrites that day's row instead of adding another.
+ */
+async function recordSnapshots(supabase: {
+  from: (table: string) => any;
+}): Promise<void> {
+  const [rows, targets] = await Promise.all([
+    supabase
+      .from("opportunities")
+      .select("is_open, deal_value, weighted_value, category, region, segment"),
+    supabase.from("targets").select("scope_field, scope_value"),
+  ]);
+  if (rows.error) throw new Error(rows.error.message);
+  if (targets.error) throw new Error(targets.error.message);
+
+  const open = (rows.data ?? []).filter((row: { is_open: boolean }) => row.is_open);
+
+  const scopes = new Map<string, { field: string; value: string }>();
+  scopes.set("|", { field: "", value: "" });
+  for (const target of targets.data ?? []) {
+    const field = target.scope_field ?? "";
+    const value = target.scope_value ?? "";
+    if (!field || !value) continue;
+    scopes.set(`${field}|${value}`, { field, value });
+  }
+
+  const takenOn = new Date().toISOString().slice(0, 10);
+  const payload: Array<Record<string, unknown>> = [];
+  for (const { field, value } of scopes.values()) {
+    const scoped = field
+      ? open.filter((row: Record<string, unknown>) => row[field] === value)
+      : open;
+    for (const metric of ["deal_value", "weighted_value"] as const) {
+      const total = scoped.reduce(
+        (sum: number, row: Record<string, number | null>) => sum + (row[metric] ?? 0),
+        0,
+      );
+      payload.push({
+        taken_on: takenOn,
+        metric,
+        scope_field: field,
+        scope_value: value,
+        total,
+        open_count: scoped.length,
+      });
+    }
+  }
+
+  const { error } = await supabase
+    .from("snapshots")
+    .upsert(payload, { onConflict: "taken_on,metric,scope_field,scope_value" });
+  if (error) throw new Error(error.message);
+}
+
 export const getPipeline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PipelineData> => {
     const { supabase } = context;
-    const [opportunities, lanes, statuses, actions, fieldLabels, picklists, targets, changes] =
-      await Promise.all([
-        supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
-        supabase.from("lanes").select("*").order("position", { ascending: true }),
-        supabase.from("opportunity_status").select("*"),
-        supabase.from("actions").select("*").order("created_at", { ascending: true }),
-        supabase.from("field_labels").select("field_name, display_label"),
-        supabase.from("picklists").select("*").order("position", { ascending: true }),
-        supabase.from("targets").select("*").order("period", { ascending: true }),
-        supabase
-          .from("opportunity_field_changes")
-          .select("*")
-          .order("changed_at", { ascending: false })
-          .limit(500),
-      ]);
+    const [
+      opportunities,
+      lanes,
+      statuses,
+      actions,
+      fieldLabels,
+      picklists,
+      targets,
+      changes,
+      snapshots,
+    ] = await Promise.all([
+      supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
+      supabase.from("lanes").select("*").order("position", { ascending: true }),
+      supabase.from("opportunity_status").select("*"),
+      supabase.from("actions").select("*").order("created_at", { ascending: true }),
+      supabase.from("field_labels").select("field_name, display_label"),
+      supabase.from("picklists").select("*").order("position", { ascending: true }),
+      supabase.from("targets").select("*").order("period", { ascending: true }),
+      supabase
+        .from("opportunity_field_changes")
+        .select("*")
+        .order("changed_at", { ascending: false })
+        .limit(500),
+      supabase.from("snapshots").select("*").order("taken_on", { ascending: true }),
+    ]);
 
     const firstError =
       opportunities.error ??
@@ -33,7 +99,8 @@ export const getPipeline = createServerFn({ method: "GET" })
       fieldLabels.error ??
       picklists.error ??
       targets.error ??
-      changes.error;
+      changes.error ??
+      snapshots.error;
     if (firstError) throw new Error(firstError.message);
 
     return {
@@ -45,8 +112,10 @@ export const getPipeline = createServerFn({ method: "GET" })
       picklists: (picklists.data ?? []) as PipelineData["picklists"],
       targets: (targets.data ?? []) as PipelineData["targets"],
       changes: (changes.data ?? []) as PipelineData["changes"],
+      snapshots: (snapshots.data ?? []) as PipelineData["snapshots"],
     };
   });
+
 
 export const updateOpportunity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
