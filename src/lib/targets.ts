@@ -56,17 +56,25 @@ export function progressFor(data: PipelineData, target: Target): TargetProgress 
 export function seriesFor(data: PipelineData, target: Target): Snapshot[] {
   const scopeField = target.scope_field ?? "";
   const scopeValue = target.scope_value ?? "";
-  return data.snapshots
-    .filter((snapshot) => {
-      if (snapshot.metric !== target.metric) return false;
-      if (snapshot.scope_field !== scopeField) return false;
-      if (snapshot.scope_value !== scopeValue) return false;
-      if (target.period_start && snapshot.taken_on < target.period_start) return false;
-      if (target.period_end && snapshot.taken_on > target.period_end) return false;
-      return true;
-    })
+  const matching = data.snapshots
+    .filter(
+      (snapshot) =>
+        snapshot.metric === target.metric &&
+        snapshot.scope_field === scopeField &&
+        snapshot.scope_value === scopeValue,
+    )
     .sort((a, b) => a.taken_on.localeCompare(b.taken_on));
+
+  const inPeriod = matching.filter((snapshot) => {
+    if (target.period_start && snapshot.taken_on < target.period_start) return false;
+    if (target.period_end && snapshot.taken_on > target.period_end) return false;
+    return true;
+  });
+
+  // Before the period starts, show the history we have rather than an empty chart.
+  return inPeriod.length > 0 ? inPeriod : matching;
 }
+
 
 export function targetTitle(target: Target): string {
   return target.label?.trim() || target.period || "Target";
