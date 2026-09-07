@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
 const NAV = [
+  { to: "/dashboard", label: "Dashboard" },
   { to: "/board", label: "Board" },
+
   { to: "/table", label: "Table" },
   { to: "/import", label: "Import data" },
   { to: "/settings", label: "Settings" },
