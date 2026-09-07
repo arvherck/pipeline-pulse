@@ -31,10 +31,16 @@ function DashboardPage() {
 
   return (
     <AppShell>
-      <h1 className="text-lg font-semibold">Dashboard</h1>
+      <header className="flex items-end justify-between border-b pb-4">
+        <div>
+          <div className="tech-label mb-1 flex items-center gap-2 text-primary"><span className="size-1.5 bg-primary" />Command overview // live</div>
+          <h1 className="font-display text-3xl font-bold uppercase text-foreground">Dashboard</h1>
+        </div>
+        <div className="hidden text-right md:block"><div className="tech-label">Workspace</div><div className="font-display text-sm font-semibold">Sales operations</div></div>
+      </header>
       <StatsStrip data={data} />
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground">Target progress</h2>
+        <div className="flex items-center gap-3"><h2 className="font-display text-sm font-bold uppercase">Target progress</h2><span className="h-px flex-1 bg-border" /><span className="tech-label">Forecast telemetry</span></div>
         <TargetGrid data={data} />
       </section>
     </AppShell>

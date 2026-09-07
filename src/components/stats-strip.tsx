@@ -21,20 +21,24 @@ export function StatsStrip({ data }: { data: PipelineData }) {
     target && target.target_amount > 0 ? Math.round((achieved / target.target_amount) * 100) : null;
 
   return (
-    <div className="flex flex-wrap items-stretch gap-px overflow-hidden rounded-md border bg-border">
-      <Stat label="Open opportunities" value={String(open.length)} />
-      <Stat label={`${labelFor(data.fieldLabels, "deal_value")} (open)`} value={formatMoney(dealTotal)} />
-      <Stat
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(3,minmax(180px,1fr))_2fr]">
+      <Stat index="01" label="Open opportunities" value={String(open.length)} accent="primary" />
+      <Stat index="02" label={`${labelFor(data.fieldLabels, "deal_value")} (open)`} value={formatMoney(dealTotal)} accent="signal" />
+      <Stat index="03"
         label={`${labelFor(data.fieldLabels, "weighted_value")} (open)`}
         value={formatMoney(weightedTotal)}
+        accent="technical"
       />
       {target ? (
         <Stat
+          index="04"
           label={`Target ${target.label || target.period}`}
           value={`${pct ?? 0}% of ${formatMoney(target.target_amount)}`}
+          accent="primary"
         />
       ) : null}
-      <div className="flex flex-1 flex-wrap items-center gap-4 bg-card px-4 py-2.5">
+      <div className="tech-panel flex min-h-20 flex-wrap items-center gap-x-5 gap-y-2 border-l-4 border-l-primary px-4 py-3 md:col-span-2 xl:col-span-1">
+        <div className="tech-label w-full text-primary">Lane distribution</div>
         {perLane.map(({ lane, count }) => (
           <div key={lane.id} className="flex items-center gap-1.5 text-xs">
             <span
@@ -43,19 +47,22 @@ export function StatsStrip({ data }: { data: PipelineData }) {
               aria-hidden
             />
             <span className="text-muted-foreground">{lane.label}</span>
-            <span className="font-medium tabular-nums">{count}</span>
+            <span className="data-value font-semibold">{String(count).padStart(2, "0")}</span>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, index, accent }: { label: string; value: string; index: string; accent: "primary" | "signal" | "technical" }) {
   return (
-    <div className="min-w-[150px] bg-card px-4 py-2.5">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-base font-semibold tabular-nums">{value}</div>
+    <div className={`tech-panel min-h-20 border-l-4 border-l-${accent} px-4 py-3`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="tech-label">{label}</div>
+        <span className="font-display text-[10px] font-bold text-muted-foreground">/{index}</span>
+      </div>
+      <div className="data-value mt-1 text-xl font-bold text-foreground">{value}</div>
     </div>
   );
 }

@@ -70,12 +70,11 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
 
   return (
     <>
-      <p className="mb-2 text-[11px] text-muted-foreground">
-        Tip: select a card with Tab, then hold Alt and press ← or → to move it between lanes. Enter
-        opens the details.
+      <p className="tech-label mb-3 border-l-2 border-primary pl-2">
+        Key controls // Tab selects · Alt + ← / → moves · Enter opens
       </p>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-4 overflow-x-auto pb-3">
           {data.lanes.map((lane) => (
             <LaneColumn
               key={lane.id}
@@ -112,20 +111,20 @@ function LaneColumn({
     <section
       ref={setNodeRef}
       className={cn(
-        "flex w-60 shrink-0 flex-col rounded-md border bg-card md:w-64",
-        isOver && "border-primary bg-accent/40",
+        "tech-panel flex w-64 shrink-0 flex-col border-t-2 bg-card md:w-72",
+        isOver && "border-primary bg-accent/50",
       )}
     >
-      <header className="flex items-center gap-2 border-b px-3 py-2">
+      <header className="relative flex items-center gap-2 border-b border-l-4 px-3 py-2.5" style={{ borderLeftColor: lane.color }}>
         <span
           className="inline-block size-2 shrink-0 rounded-full"
           style={{ backgroundColor: lane.color }}
           aria-hidden
         />
-        <h2 className="truncate text-[13px] font-medium">{lane.label}</h2>
-        <span className="ml-auto text-xs tabular-nums text-muted-foreground">{cards.length}</span>
+        <h2 className="truncate font-display text-xs font-bold uppercase">{lane.label}</h2>
+        <span className="data-value ml-auto bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">{String(cards.length).padStart(2, "0")}</span>
       </header>
-      <div className="px-2 pb-1 pt-2 text-[11px] text-muted-foreground">
+      <div className="data-value border-b px-3 py-2 text-xs font-semibold text-muted-foreground">
         {formatMoney(sum(cards.map((c) => c.deal_value)))}
       </div>
       <div className="flex flex-col gap-2 p-2">
@@ -172,16 +171,17 @@ function Card({
       }}
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : {}}
       className={cn(
-        "cursor-grab rounded border bg-background p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isDragging && "opacity-60",
+        "group relative cursor-grab border bg-background p-3 text-left transition-[border-color,transform,box-shadow] after:absolute after:bottom-0 after:right-0 after:size-2 after:border-b after:border-r after:border-border hover:-translate-y-0.5 hover:border-primary hover:shadow-sm hover:after:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isDragging && "opacity-60 shadow-md",
       )}
     >
-      <p className="text-[13px] font-medium leading-snug">{opportunity.name}</p>
+      <div className="mb-2 flex items-center justify-between gap-2"><span className="tech-label text-primary">{opportunity.id}</span><span className="tech-label">{opportunity.probability == null ? "--" : `${opportunity.probability}%`}</span></div>
+      <p className="font-display text-sm font-bold leading-snug transition-colors group-hover:text-primary">{opportunity.name}</p>
       <p className="mt-0.5 truncate text-xs text-muted-foreground">
         {opportunity.account_name ?? "—"}
       </p>
       <div className="mt-1.5 flex items-center justify-between text-xs">
-        <span className="font-medium tabular-nums">{formatMoney(opportunity.deal_value)}</span>
+        <span className="data-value font-bold">{formatMoney(opportunity.deal_value)}</span>
         <span className="text-muted-foreground">{formatDate(opportunity.close_date)}</span>
       </div>
       <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">

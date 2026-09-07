@@ -57,7 +57,7 @@ function SettingsPage() {
 
   return (
     <AppShell>
-      <h1 className="text-lg font-semibold">Settings</h1>
+      <header className="border-b pb-4"><div className="tech-label mb-1 text-primary">System configuration // restricted</div><h1 className="font-display text-3xl font-bold uppercase">Settings</h1></header>
       <div className="grid gap-5 lg:grid-cols-2">
         <FieldLabels data={data} />
         <Lanes data={data} />
@@ -70,9 +70,10 @@ function SettingsPage() {
 
 function Panel({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-md border bg-card">
-      <header className="border-b px-3 py-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <section className="tech-panel">
+      <header className="border-b-2 border-primary/20 bg-muted/40 px-4 py-3">
+        <div className="tech-label mb-0.5 text-primary">Control module</div>
+        <h2 className="font-display text-sm font-bold uppercase">{title}</h2>
         {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </header>
       <div className="space-y-2 p-3">{children}</div>

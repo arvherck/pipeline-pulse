@@ -33,18 +33,11 @@ function BoardPage() {
 
   return (
     <AppShell>
+      <header className="flex items-end justify-between border-b pb-4">
+        <div><div className="tech-label mb-1 text-primary">Flow control // live</div><h1 className="font-display text-3xl font-bold uppercase">Board</h1></div>
+        <Button size="icon" variant="outline" aria-label="Manage lanes" title="Manage lanes" onClick={() => setLanesOpen(true)}><Settings2 /></Button>
+      </header>
       <StatsStrip data={data} />
-      <div className="flex items-center justify-between">
-        <h1 className="text-sm font-medium">Board</h1>
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-label="Manage lanes"
-          onClick={() => setLanesOpen(true)}
-        >
-          <Settings2 className="size-4" />
-        </Button>
-      </div>
       <KanbanBoard data={data} />
       <ManageLanesPanel data={data} open={lanesOpen} onClose={() => setLanesOpen(false)} />
     </AppShell>

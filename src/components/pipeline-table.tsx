@@ -77,7 +77,7 @@ export function PipelineTable({ data }: { data: PipelineData }) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center">
+      <div className="tech-panel grid grid-cols-2 gap-2 border-l-4 border-l-primary p-3 md:flex md:flex-wrap md:items-center">
         <Input
           className="col-span-2 h-8 text-[13px] md:w-56"
           placeholder="Search deals, clients, owners…"
@@ -135,15 +135,15 @@ export function PipelineTable({ data }: { data: PipelineData }) {
       </div>
 
 
-      <div className="overflow-x-auto rounded-md border bg-card">
+      <div className="tech-panel overflow-x-auto">
         <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="border-b bg-muted/60">
+            <tr className="border-b-2 border-primary/30 bg-muted/70">
               {TABLE_COLUMNS.map((key) => (
                 <th
                   key={key}
                   scope="col"
-                  className="whitespace-nowrap px-2.5 py-2 text-left font-medium"
+                  className="whitespace-nowrap px-2.5 py-2.5 text-left font-display text-[10px] font-bold uppercase text-muted-foreground"
                 >
                   <button
                     type="button"
@@ -151,11 +151,11 @@ export function PipelineTable({ data }: { data: PipelineData }) {
                     onClick={() => toggleSort(key)}
                   >
                     {labelFor(data.fieldLabels, key)}
-                    {sortKey === key ? <span aria-hidden>{sortAsc ? "▲" : "▼"}</span> : null}
+                      {sortKey === key ? <span className="text-primary" aria-hidden>{sortAsc ? "▲" : "▼"}</span> : null}
                   </button>
                 </th>
               ))}
-              <th scope="col" className="px-2.5 py-2 text-left font-medium">
+              <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
                 Lane
               </th>
             </tr>
@@ -164,7 +164,7 @@ export function PipelineTable({ data }: { data: PipelineData }) {
             {rows.map((row) => (
               <tr
                 key={row.id}
-                className="cursor-pointer border-b last:border-0 hover:bg-accent/50"
+                className="cursor-pointer border-b transition-colors last:border-0 hover:bg-accent/60"
                 onClick={() => setSelected(row)}
               >
                 {TABLE_COLUMNS.map((key) => (
