@@ -288,7 +288,10 @@ export const importOpportunities = createServerFn({ method: "POST" })
       placed = missing.length;
     }
 
+    await recordSnapshots(supabase);
+
     return { imported: rows.length, placed };
+
   });
 
 export const addAction = createServerFn({ method: "POST" })
