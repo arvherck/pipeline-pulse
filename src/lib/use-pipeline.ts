@@ -21,7 +21,7 @@ export function laneOf(data: PipelineData, opportunityId: string): Lane | undefi
 }
 
 export function sum(values: Array<number | null>): number {
-  return values.reduce((total, value) => total + (value ?? 0), 0);
+  return values.reduce<number>((total, value) => total + (value ?? 0), 0);
 }
 
 export function uniqueValues(rows: Opportunity[], key: keyof Opportunity): string[] {
