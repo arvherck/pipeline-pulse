@@ -5,6 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { LastImportNote } from "@/components/last-import-note";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { importOpportunities } from "@/lib/pipeline.functions";
@@ -123,13 +125,17 @@ function ImportWizard({ data }: { data: PipelineData }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Import data</h1>
-        <p className="text-[13px] text-muted-foreground">
-          Drop a .xlsx or .csv export below. The file is read on this computer only — nothing is
-          uploaded except the rows you confirm.
-        </p>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold">Import data</h1>
+          <p className="text-[13px] text-muted-foreground">
+            Drop a .xlsx or .csv export below. The file is read on this computer only — nothing is
+            uploaded except the rows you confirm.
+          </p>
+        </div>
+        <LastImportNote className="pt-1" />
       </div>
+
 
       <label
         onDragOver={(e) => {

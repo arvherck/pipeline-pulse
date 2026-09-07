@@ -1,9 +1,12 @@
+import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { OpportunityPanel } from "@/components/opportunity-panel";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { downloadCsv, toCsv, todayStamp } from "@/lib/csv";
 import {
   TABLE_COLUMNS,
   formatDate,
@@ -14,6 +17,7 @@ import {
 } from "@/lib/pipeline-types";
 import { laneOf, uniqueValues } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
+
 
 type SortKey = keyof Opportunity & string;
 
@@ -61,11 +65,21 @@ export function PipelineTable({ data }: { data: PipelineData }) {
     }
   }
 
+  function exportCsv() {
+    const header = [...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)), "Lane"];
+
+    const body = rows.map((row) => [
+      ...TABLE_COLUMNS.map((key) => exportCell(row, key)),
+      laneOf(data, row.id)?.label ?? "",
+    ]);
+    downloadCsv(`pipeline-${todayStamp()}.csv`, toCsv(header, body));
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center">
         <Input
-          className="h-8 w-56 text-[13px]"
+          className="col-span-2 h-8 text-[13px] md:w-56"
           placeholder="Search deals, clients, owners…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -89,9 +103,10 @@ export function PipelineTable({ data }: { data: PipelineData }) {
           options={uniqueValues(data.opportunities, "segment")}
         />
         <select
-          className="h-8 rounded-md border border-input bg-card px-2 text-[13px]"
+          className="h-8 min-w-0 rounded-md border border-input bg-card px-2 text-[13px]"
           value={laneId}
           onChange={(e) => setLaneId(e.target.value)}
+          aria-label="Lane"
         >
           <option value="">All lanes</option>
           {data.lanes.map((lane) => (
@@ -100,14 +115,25 @@ export function PipelineTable({ data }: { data: PipelineData }) {
             </option>
           ))}
         </select>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="col-span-2 flex items-center gap-2 md:ml-auto">
           <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
           <Label htmlFor="open-only" className="text-[13px] text-muted-foreground">
             Open only
           </Label>
           <span className="text-xs tabular-nums text-muted-foreground">{rows.length} rows</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-8 shrink-0 md:ml-0"
+            onClick={exportCsv}
+            disabled={rows.length === 0}
+          >
+            <Download className="mr-1 size-3.5" aria-hidden />
+            Export CSV
+          </Button>
         </div>
       </div>
+
 
       <div className="overflow-x-auto rounded-md border bg-card">
         <table className="w-full border-collapse text-[13px]">
@@ -185,6 +211,17 @@ function renderCell(row: Opportunity, key: keyof Opportunity & string) {
   if (value == null || value === "") return "—";
   return String(value);
 }
+
+/** Spreadsheet-friendly value: full numbers, ISO dates, empty for blanks. */
+function exportCell(row: Opportunity, key: keyof Opportunity & string): string {
+  const value = row[key];
+  if (key === "is_open") return row.is_open ? "Open" : "Closed";
+  if (value == null || value === "") return "";
+  if (key.includes("date")) return String(value).slice(0, 10);
+  return String(value);
+}
+
+
 
 function FilterSelect({
   label,

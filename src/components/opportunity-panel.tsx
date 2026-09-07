@@ -12,10 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   addAction,
   deleteAction,
+  setOpportunityLane,
   setStatusNotes,
   toggleAction,
   updateOpportunity,
 } from "@/lib/pipeline.functions";
+
 import {
   EDITABLE_FIELDS,
   isPicklistField,
@@ -31,7 +33,7 @@ import {
   type Opportunity,
   type PipelineData,
 } from "@/lib/pipeline-types";
-import { useInvalidatePipeline } from "@/lib/use-pipeline";
+import { laneOf, useInvalidatePipeline } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
 
 type Draft = {
@@ -95,6 +97,8 @@ export function OpportunityPanel({
   const flipAction = useServerFn(toggleAction);
   const removeAction = useServerFn(deleteAction);
   const saveOpportunity = useServerFn(updateOpportunity);
+  const moveLane = useServerFn(setOpportunityLane);
+
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -191,7 +195,34 @@ export function OpportunityPanel({
                 {savedOpportunity?.account_name ?? "No client"} · {opportunity.id} · updated{" "}
                 {formatDate(savedOpportunity?.updated_at ?? null)}
               </p>
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs text-muted-foreground">Lane</span>
+                <select
+                  className="h-7 rounded-md border border-input bg-card px-2 text-xs"
+                  aria-label="Lane"
+                  value={laneOf(data, opportunity.id)?.id ?? ""}
+                  onChange={async (event) => {
+                    const laneId = event.target.value;
+                    if (!laneId) return;
+                    try {
+                      await moveLane({ data: { opportunityId: opportunity.id, laneId } });
+                      await invalidate();
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error ? error.message : "Could not move that card",
+                      );
+                    }
+                  }}
+                >
+                  {data.lanes.map((lane) => (
+                    <option key={lane.id} value={lane.id}>
+                      {lane.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </SheetHeader>
+
 
             <Tabs defaultValue="details" className="px-4 pb-8">
               <TabsList className="mb-3">

@@ -70,6 +70,27 @@ export type Database = {
         }
         Relationships: []
       }
+      import_runs: {
+        Row: {
+          created_at: string
+          id: string
+          imported_at: string
+          row_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          imported_at?: string
+          row_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          imported_at?: string
+          row_count?: number
+        }
+        Relationships: []
+      }
       lanes: {
         Row: {
           color: string

@@ -75,6 +75,7 @@ export const getPipeline = createServerFn({ method: "GET" })
       targets,
       changes,
       snapshots,
+      importRuns,
     ] = await Promise.all([
       supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
       supabase.from("lanes").select("*").order("position", { ascending: true }),
@@ -89,6 +90,11 @@ export const getPipeline = createServerFn({ method: "GET" })
         .order("changed_at", { ascending: false })
         .limit(500),
       supabase.from("snapshots").select("*").order("taken_on", { ascending: true }),
+      supabase
+        .from("import_runs")
+        .select("id, imported_at, row_count")
+        .order("imported_at", { ascending: false })
+        .limit(10),
     ]);
 
     const firstError =
@@ -100,7 +106,8 @@ export const getPipeline = createServerFn({ method: "GET" })
       picklists.error ??
       targets.error ??
       changes.error ??
-      snapshots.error;
+      snapshots.error ??
+      importRuns.error;
     if (firstError) throw new Error(firstError.message);
 
     return {
@@ -113,7 +120,9 @@ export const getPipeline = createServerFn({ method: "GET" })
       targets: (targets.data ?? []) as PipelineData["targets"],
       changes: (changes.data ?? []) as PipelineData["changes"],
       snapshots: (snapshots.data ?? []) as PipelineData["snapshots"],
+      importRuns: (importRuns.data ?? []) as PipelineData["importRuns"],
     };
+
   });
 
 
@@ -288,7 +297,14 @@ export const importOpportunities = createServerFn({ method: "POST" })
       placed = missing.length;
     }
 
+    // Record the run so the app can show when data last came in.
+    const { error: runError } = await supabase
+      .from("import_runs")
+      .insert({ row_count: rows.length });
+    if (runError) throw new Error(runError.message);
+
     await recordSnapshots(supabase);
+
 
     return { imported: rows.length, placed };
 
