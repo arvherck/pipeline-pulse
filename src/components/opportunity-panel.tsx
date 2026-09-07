@@ -195,7 +195,34 @@ export function OpportunityPanel({
                 {savedOpportunity?.account_name ?? "No client"} · {opportunity.id} · updated{" "}
                 {formatDate(savedOpportunity?.updated_at ?? null)}
               </p>
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs text-muted-foreground">Lane</span>
+                <select
+                  className="h-7 rounded-md border border-input bg-card px-2 text-xs"
+                  aria-label="Lane"
+                  value={laneOf(data, opportunity.id)?.id ?? ""}
+                  onChange={async (event) => {
+                    const laneId = event.target.value;
+                    if (!laneId) return;
+                    try {
+                      await moveLane({ data: { opportunityId: opportunity.id, laneId } });
+                      await invalidate();
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error ? error.message : "Could not move that card",
+                      );
+                    }
+                  }}
+                >
+                  {data.lanes.map((lane) => (
+                    <option key={lane.id} value={lane.id}>
+                      {lane.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </SheetHeader>
+
 
             <Tabs defaultValue="details" className="px-4 pb-8">
               <TabsList className="mb-3">
