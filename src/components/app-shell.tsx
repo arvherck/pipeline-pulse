@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { LastImportNote } from "@/components/last-import-note";
+
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard" },
