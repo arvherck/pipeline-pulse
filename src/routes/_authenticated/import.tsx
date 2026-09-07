@@ -123,13 +123,17 @@ function ImportWizard({ data }: { data: PipelineData }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Import data</h1>
-        <p className="text-[13px] text-muted-foreground">
-          Drop a .xlsx or .csv export below. The file is read on this computer only — nothing is
-          uploaded except the rows you confirm.
-        </p>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold">Import data</h1>
+          <p className="text-[13px] text-muted-foreground">
+            Drop a .xlsx or .csv export below. The file is read on this computer only — nothing is
+            uploaded except the rows you confirm.
+          </p>
+        </div>
+        <LastImportNote className="pt-1" />
       </div>
+
 
       <label
         onDragOver={(e) => {
