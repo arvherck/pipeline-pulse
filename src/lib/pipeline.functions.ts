@@ -181,7 +181,10 @@ export const updateOpportunity = createServerFn({ method: "POST" })
       .insert(log.map((entry) => ({ ...entry, opportunity_id: data.opportunityId })));
     if (logError) throw new Error(logError.message);
 
+    await recordSnapshots(supabase);
+
     return { ok: true, changed: log.length };
+
   });
 
 
