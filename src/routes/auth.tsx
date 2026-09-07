@@ -14,6 +14,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Sign in to the internal Pipeline Tracker." },
       { property: "og:title", content: "Sign in · Pipeline Tracker" },
       { property: "og:description", content: "Sign in to the internal Pipeline Tracker." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AuthPage,
