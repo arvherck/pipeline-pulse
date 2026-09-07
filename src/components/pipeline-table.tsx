@@ -214,6 +214,17 @@ function renderCell(row: Opportunity, key: keyof Opportunity & string) {
   return String(value);
 }
 
+/** Spreadsheet-friendly value: full numbers, ISO dates, empty for blanks. */
+function exportCell(row: Opportunity, key: keyof Opportunity & string): string {
+  const value = row[key];
+  if (key === "is_open") return row.is_open ? "Open" : "Closed";
+  if (value == null || value === "") return "";
+  if (key.includes("date")) return String(value).slice(0, 10);
+  return String(value);
+}
+
+
+
 function FilterSelect({
   label,
   value,
