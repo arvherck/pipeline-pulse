@@ -12,10 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   addAction,
   deleteAction,
+  setOpportunityLane,
   setStatusNotes,
   toggleAction,
   updateOpportunity,
 } from "@/lib/pipeline.functions";
+
 import {
   EDITABLE_FIELDS,
   isPicklistField,
