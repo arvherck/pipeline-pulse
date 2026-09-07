@@ -279,6 +279,42 @@ export type Database = {
         }
         Relationships: []
       }
+      snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          metric: string
+          open_count: number
+          scope_field: string
+          scope_value: string
+          taken_on: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric: string
+          open_count?: number
+          scope_field?: string
+          scope_value?: string
+          taken_on?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric?: string
+          open_count?: number
+          scope_field?: string
+          scope_value?: string
+          taken_on?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       targets: {
         Row: {
           created_at: string
@@ -286,6 +322,10 @@ export type Database = {
           label: string | null
           metric: string
           period: string
+          period_end: string | null
+          period_start: string | null
+          scope_field: string | null
+          scope_value: string | null
           target_amount: number
         }
         Insert: {
@@ -294,6 +334,10 @@ export type Database = {
           label?: string | null
           metric?: string
           period: string
+          period_end?: string | null
+          period_start?: string | null
+          scope_field?: string | null
+          scope_value?: string | null
           target_amount?: number
         }
         Update: {
@@ -302,6 +346,10 @@ export type Database = {
           label?: string | null
           metric?: string
           period?: string
+          period_end?: string | null
+          period_start?: string | null
+          scope_field?: string | null
+          scope_value?: string | null
           target_amount?: number
         }
         Relationships: []
