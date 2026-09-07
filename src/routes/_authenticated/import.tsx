@@ -110,7 +110,7 @@ function ImportWizard({ data }: { data: PipelineData }) {
       if (payload.length === 0) throw new Error("No rows had a value in the ID column");
       const result = await upload({ data: { rows: payload } });
       await invalidate();
-      toast.success(`Imported ${result.count} rows`);
+      toast.success(`Imported ${result.imported} rows`);
       setRows([]);
       setHeaders([]);
       setFileName("");
@@ -279,7 +279,7 @@ function autoMap(headers: string[]): Mapping {
     const match = IMPORT_FIELDS.find(
       (field) =>
         field.key === normalized ||
-        field.label.toLowerCase() === header.toLowerCase() ||
+        field.fallbackLabel.toLowerCase() === header.toLowerCase() ||
         field.key.replace(/_/g, "") === normalized.replace(/_/g, ""),
     );
     if (match) mapping[header] = match.key;
