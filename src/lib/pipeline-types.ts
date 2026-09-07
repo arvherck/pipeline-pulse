@@ -103,6 +103,8 @@ export type PipelineData = {
   fieldLabels: FieldLabel[];
   picklists: Picklist[];
   targets: Target[];
+  snapshots: Snapshot[];
+
   changes: FieldChange[];
 };
 
