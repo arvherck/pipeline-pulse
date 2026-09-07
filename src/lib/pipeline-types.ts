@@ -21,7 +21,7 @@ export type Opportunity = {
   status_notes: string | null;
   comment: string | null;
   is_open: boolean;
-  custom_fields: Record<string, unknown>;
+  custom_fields: Record<string, string | number | boolean | null>;
   created_at: string;
   updated_at: string;
 };
