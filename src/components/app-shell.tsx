@@ -28,9 +28,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="flex h-11 items-center gap-6 px-4">
-          <span className="text-sm font-semibold tracking-tight">Pipeline Tracker</span>
-          <nav className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 md:h-11 md:flex-nowrap md:gap-6 md:py-0">
+          <span className="shrink-0 text-sm font-semibold tracking-tight">Pipeline Tracker</span>
+          <nav className="flex min-w-0 flex-wrap items-center gap-1">
             {NAV.map((item) => (
               <Link
                 key={item.to}
@@ -41,16 +41,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
+          <LastImportNote variant="short" className="hidden lg:inline" />
           <Button
             variant="ghost"
             size="sm"
-            className="ml-auto h-7 text-xs text-muted-foreground"
+            className="ml-auto h-7 shrink-0 text-xs text-muted-foreground"
             onClick={signOut}
           >
             Sign out
           </Button>
         </div>
       </header>
+
       <main className="px-4 py-4">{children}</main>
     </div>
   );
