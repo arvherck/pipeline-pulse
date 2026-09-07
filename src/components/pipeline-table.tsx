@@ -66,10 +66,8 @@ export function PipelineTable({ data }: { data: PipelineData }) {
   }
 
   function exportCsv() {
-    const header = [
-      ...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)),
-      labelFor(data.fieldLabels, "lane"),
-    ];
+    const header = [...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)), "Lane"];
+
     const body = rows.map((row) => [
       ...TABLE_COLUMNS.map((key) => exportCell(row, key)),
       laneOf(data, row.id)?.label ?? "",
