@@ -41,15 +41,16 @@ export function OpportunityPanel({
     ? data.statuses.find((s) => s.opportunity_id === opportunity.id)
     : undefined;
   const [notes, setNotes] = useState(status?.notes ?? "");
-  const [notesFor, setNotesFor] = useState(opportunity?.id ?? "");
   const [actionText, setActionText] = useState("");
   const [actionOwner, setActionOwner] = useState("");
   const [actionDue, setActionDue] = useState("");
 
-  if (opportunity && notesFor !== opportunity.id) {
-    setNotesFor(opportunity.id);
-    setNotes(status?.notes ?? "");
-  }
+  const opportunityId = opportunity?.id ?? "";
+  useEffect(() => {
+    if (!opportunityId) return;
+    setNotes(data.statuses.find((s) => s.opportunity_id === opportunityId)?.notes ?? "");
+  }, [opportunityId, data.statuses]);
+
 
   const actions = opportunity
     ? data.actions.filter((a) => a.opportunity_id === opportunity.id)
