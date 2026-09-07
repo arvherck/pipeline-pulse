@@ -492,7 +492,7 @@ export const saveTarget = createServerFn({ method: "POST" })
       period_start: data.periodStart || null,
       period_end: data.periodEnd || null,
       scope_field: scopeField,
-      scope_value: scopeField ? data.scopeValue : null,
+      scope_value: scopeField ? (data.scopeValue ?? null) : null,
     };
     const { error } = data.id
       ? await context.supabase.from("targets").update(payload).eq("id", data.id)
