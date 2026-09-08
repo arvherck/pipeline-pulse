@@ -139,6 +139,7 @@ export function OpportunityPanel({
   const patch = draft ? toPatch(draft) : null;
   const errors = patch ? validatePatch(patch) : {};
   const warnings = patch ? warningsFor(patch) : {};
+  const segmentWarning = patch ? segmentMismatch(patch) : null;
   const dirty =
     draft && savedOpportunity
       ? JSON.stringify(draft) !== JSON.stringify(toDraft(savedOpportunity))
@@ -154,9 +155,22 @@ export function OpportunityPanel({
     : [];
 
   function set(key: string, value: string | boolean) {
-    setDraft((current) =>
-      current ? { ...current, fields: { ...current.fields, [key]: value } } : current,
-    );
+    setDraft((current) => {
+      if (!current) return current;
+      const fields = { ...current.fields, [key]: value };
+      // Stage drives the probability default and, once closed, the outcome note.
+      if (key === "stage") {
+        const implied = probabilityForStage(typeof value === "string" ? value : "");
+        if (implied != null) fields["probability"] = String(implied);
+      }
+      if (key === "stage" || key === "is_open") {
+        const open = Boolean(fields["is_open"]);
+        const stage = typeof fields["stage"] === "string" ? fields["stage"] : "";
+        const outcome = statusOutcomeForStage(stage);
+        if (!open && outcome) fields["status_notes"] = outcome;
+      }
+      return { ...current, fields };
+    });
   }
 
   function setCustom(key: string, value: string) {
