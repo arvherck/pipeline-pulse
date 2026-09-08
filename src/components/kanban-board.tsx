@@ -12,7 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { OpportunityPanel } from "@/components/opportunity-panel";
-import { setOpportunityStage } from "@/lib/pipeline.functions";
+import { setOpportunityLane } from "@/lib/pipeline.functions";
 import {
   formatDate,
   formatMoney,
