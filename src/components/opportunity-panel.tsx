@@ -513,6 +513,8 @@ function FieldEditor({
   label,
   data,
   value,
+  isOpen,
+  stage,
   error,
   warning,
   onChange,
@@ -521,6 +523,8 @@ function FieldEditor({
   label: string;
   data: PipelineData;
   value: string | boolean;
+  isOpen: boolean;
+  stage: string;
   error?: string | undefined;
   warning?: string | undefined;
   onChange: (value: string | boolean) => void;
