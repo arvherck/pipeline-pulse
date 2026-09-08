@@ -297,8 +297,7 @@ export function OpportunityPanel({
               </SheetTitle>
               {creating ? (
                 <p className="text-xs text-muted-foreground">
-                  Fill in at least a name and a stage. The stage decides which board column it
-                  shows in.
+                  Fill in at least a name and a stage. New deals start in the first board lane.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -308,11 +307,11 @@ export function OpportunityPanel({
               )}
               {creating || !opportunity ? null : (
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="tech-label">Board column</span>
+                  <span className="tech-label">Board lane</span>
                   <span className="data-value border px-1.5 py-0.5 text-xs font-semibold">
                     {laneOf(data, opportunity.id)?.label ?? "—"}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">follows the stage below</span>
+                  <span className="text-[11px] text-muted-foreground">drag the card to change</span>
                 </div>
               )}
 
