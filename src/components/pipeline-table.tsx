@@ -188,6 +188,9 @@ export function PipelineTable({ data }: { data: PipelineData }) {
               <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
                 Lane
               </th>
+              <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
