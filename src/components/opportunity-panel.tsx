@@ -85,33 +85,52 @@ function toPatch(draft: Draft): OpportunityPatch {
   return patch as OpportunityPatch;
 }
 
+/** An empty draft for a brand-new deal. */
+function blankDraft(): Draft {
+  const fields: Record<string, string | boolean> = {};
+  for (const field of EDITABLE_FIELDS) {
+    fields[field.key] = field.kind === "boolean" ? true : "";
+  }
+  return { fields, custom: {} };
+}
+
+/** Next free MAN-0001 style reference, based on what is already loaded. */
+export function nextReference(rows: Opportunity[]): string {
+  let highest = 0;
+  for (const row of rows) {
+    const match = /^MAN-(\d+)$/.exec(row.id);
+    if (match?.[1]) highest = Math.max(highest, Number(match[1]));
+  }
+  return `MAN-${String(highest + 1).padStart(4, "0")}`;
+}
+
 export function OpportunityPanel({
   data,
   opportunity,
+  creating = false,
   onClose,
 }: {
   data: PipelineData;
   opportunity: Opportunity | null;
+  creating?: boolean;
   onClose: () => void;
 }) {
   const invalidate = useInvalidatePipeline();
   const saveNotes = useServerFn(setStatusNotes);
-  const createAction = useServerFn(addAction);
-  const flipAction = useServerFn(toggleAction);
-  const removeAction = useServerFn(deleteAction);
   const saveOpportunity = useServerFn(updateOpportunity);
+  const addOpportunity = useServerFn(createOpportunity);
+  const removeOpportunity = useServerFn(deleteOpportunity);
   const moveLane = useServerFn(setOpportunityLane);
 
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState("");
-  const [actionText, setActionText] = useState("");
-  const [actionOwner, setActionOwner] = useState("");
-  const [actionDue, setActionDue] = useState("");
+  const [newId, setNewId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [newCustomKey, setNewCustomKey] = useState("");
 
-  const opportunityId = opportunity?.id ?? "";
+  const opportunityId = creating ? "" : opportunity?.id ?? "";
   const savedOpportunity = useMemo(
     () => data.opportunities.find((o) => o.id === opportunityId),
     [data.opportunities, opportunityId],
@@ -123,16 +142,25 @@ export function OpportunityPanel({
   // Seed the form only when a different deal is opened, so a background
   // refresh never wipes what is being typed.
   useEffect(() => {
+    if (creating) {
+      setDraft(blankDraft());
+      setNotes("");
+      setConfirmDelete(false);
+      setNewId(nextReference(latest.current.opportunities));
+      return;
+    }
     if (!opportunityId) {
       setDraft(null);
       return;
     }
+    setConfirmDelete(false);
     setNotes(
       latest.current.statuses.find((s) => s.opportunity_id === opportunityId)?.notes ?? "",
     );
     const row = latest.current.opportunities.find((o) => o.id === opportunityId);
     if (row) setDraft(toDraft(row));
-  }, [opportunityId]);
+  }, [opportunityId, creating]);
+
 
 
   const patch = draft ? toPatch(draft) : null;
