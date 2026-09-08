@@ -257,6 +257,65 @@ const opportunityRowSchema = z.object({
     .default({}),
 });
 
+/** Create a deal by hand. The reference must be free so imports still match. */
+export const createOpportunity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({ id: z.string().trim().min(1, "A reference is required"), patch: opportunityPatchSchema })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: clash, error: clashError } = await supabase
+      .from("opportunities")
+      .select("id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (clashError) throw new Error(clashError.message);
+    if (clash) throw new Error(`${data.id} is already used by another opportunity`);
+
+    const { error } = await supabase
+      .from("opportunities")
+      .insert({ id: data.id, ...data.patch } as never);
+    if (error) throw new Error(error.message);
+
+    const { data: lanes, error: laneError } = await supabase
+      .from("lanes")
+      .select("id, position, is_default")
+      .order("position", { ascending: true });
+    if (laneError) throw new Error(laneError.message);
+    const lane = lanes?.find((l) => l.is_default) ?? lanes?.[0];
+    if (lane) {
+      const { error: statusError } = await supabase
+        .from("opportunity_status")
+        .upsert({ opportunity_id: data.id, lane_id: lane.id }, { onConflict: "opportunity_id" });
+      if (statusError) throw new Error(statusError.message);
+    }
+
+    await recordSnapshots(supabase);
+    return { ok: true, id: data.id };
+  });
+
+/** Remove a deal for good, along with its actions, lane placement and history. */
+export const deleteOpportunity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    for (const table of ["actions", "opportunity_field_changes", "opportunity_status"] as const) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq("opportunity_id", data.opportunityId);
+      if (error) throw new Error(error.message);
+    }
+    const { error } = await supabase.from("opportunities").delete().eq("id", data.opportunityId);
+    if (error) throw new Error(error.message);
+    await recordSnapshots(supabase);
+    return { ok: true };
+  });
+
 export const importOpportunities = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ rows: z.array(opportunityRowSchema).min(1) }).parse(input))
