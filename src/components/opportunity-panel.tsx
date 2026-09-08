@@ -257,6 +257,12 @@ export function OpportunityPanel({
               </TabsList>
 
               <TabsContent value="details" className="space-y-4">
+                {segmentWarning ? (
+                  <p className="rounded-sm border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+                    {segmentWarning} You can still save.
+                  </p>
+                ) : null}
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <FieldLabel text={label("id")} />
@@ -273,6 +279,8 @@ export function OpportunityPanel({
                       label={label(field.key)}
                       data={data}
                       value={draft.fields[field.key] ?? ""}
+                      isOpen={Boolean(draft.fields["is_open"])}
+                      stage={typeof draft.fields["stage"] === "string" ? draft.fields["stage"] : ""}
                       error={errors[field.key]}
                       warning={warnings[field.key]}
                       onChange={(value) => set(field.key, value)}
