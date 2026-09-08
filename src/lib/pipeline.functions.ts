@@ -519,10 +519,7 @@ export const deletePicklistValue = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/**
- * Save a board column. A column is a stage, so renaming one renames the stage
- * on every deal that uses it and in the stage dropdown.
- */
+/** Save a board lane. Lanes are their own workflow track, separate from stage. */
 export const saveLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -539,54 +536,11 @@ export const saveLane = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
-    let stageValue = data.label;
-    if (data.id) {
-      const { data: existing, error: readError } = await supabase
-        .from("lanes")
-        .select("stage_value, label")
-        .eq("id", data.id)
-        .maybeSingle();
-      if (readError) throw new Error(readError.message);
-      if (!existing) throw new Error("That stage no longer exists");
-      const previous = existing.stage_value ?? existing.label;
-      stageValue = previous;
-
-      if (previous !== data.label) {
-        // Rename the stage everywhere it is stored.
-        const { error: dealError } = await supabase
-          .from("opportunities")
-          .update({ stage: data.label })
-          .eq("stage", previous);
-        if (dealError) throw new Error(dealError.message);
-
-        const { error: listError } = await supabase
-          .from("picklists")
-          .update({ value: data.label, label: data.label })
-          .eq("field_name", "stage")
-          .eq("value", previous);
-        if (listError) throw new Error(listError.message);
-
-        stageValue = data.label;
-      }
-    } else {
-      const { error: listError } = await supabase.from("picklists").upsert(
-        {
-          field_name: "stage",
-          value: data.label,
-          label: data.label,
-          position: data.position,
-        },
-        { onConflict: "field_name,value" },
-      );
-      if (listError) throw new Error(listError.message);
-    }
-
     const payload = {
       label: data.label,
       position: data.position,
       color: data.color,
       is_default: data.isDefault,
-      stage_value: stageValue,
     };
     if (data.isDefault) {
       const { error } = await supabase
