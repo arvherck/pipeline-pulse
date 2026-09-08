@@ -20,14 +20,17 @@ import {
   type Opportunity,
   type PipelineData,
 } from "@/lib/pipeline-types";
-import { laneOf, sum, useInvalidatePipeline } from "@/lib/use-pipeline";
+import { actionRollups, laneOf, sum, useInvalidatePipeline, type ActionRollup } from "@/lib/use-pipeline";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function KanbanBoard({ data }: { data: PipelineData }) {
   const move = useServerFn(setOpportunityLane);
   const invalidate = useInvalidatePipeline();
   const [selected, setSelected] = useState<Opportunity | null>(null);
+  const [creating, setCreating] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const rollups = actionRollups(data);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   async function moveTo(opportunityId: string, laneId: string) {
