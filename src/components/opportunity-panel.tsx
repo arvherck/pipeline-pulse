@@ -341,10 +341,23 @@ export function OpportunityPanel({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <FieldLabel text={label("id")} />
-                    <p className="h-8 rounded-md border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
-                      {opportunity.id}
-                    </p>
-                    <Hint text="Set at import — used to match rows, so it can't be changed." />
+                    {creating ? (
+                      <>
+                        <Input
+                          className="h-8 text-[13px]"
+                          value={newId}
+                          onChange={(e) => setNewId(e.target.value)}
+                        />
+                        <Hint text="Suggested reference — change it to match your own numbering if you like." />
+                      </>
+                    ) : (
+                      <>
+                        <p className="h-8 rounded-md border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
+                          {opportunity?.id}
+                        </p>
+                        <Hint text="Set at import — used to match rows, so it can't be changed." />
+                      </>
+                    )}
                   </div>
 
                   {EDITABLE_FIELDS.map((field) => (
