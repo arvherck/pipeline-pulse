@@ -313,7 +313,8 @@ export function OpportunityPanel({
                     </option>
                   ))}
                 </select>
-              </div>
+                </div>
+              )}
             </SheetHeader>
 
 
