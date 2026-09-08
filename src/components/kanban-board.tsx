@@ -12,7 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { OpportunityPanel } from "@/components/opportunity-panel";
-import { setOpportunityStage } from "@/lib/pipeline.functions";
+import { setOpportunityLane } from "@/lib/pipeline.functions";
 import {
   formatDate,
   formatMoney,
@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function KanbanBoard({ data }: { data: PipelineData }) {
-  const move = useServerFn(setOpportunityStage);
+  const move = useServerFn(setOpportunityLane);
   const invalidate = useInvalidatePipeline();
   const [selected, setSelected] = useState<Opportunity | null>(null);
   const [creating, setCreating] = useState(false);
@@ -34,16 +34,11 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
   const rollups = actionRollups(data);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  /** Columns are stages, so moving a card changes the deal's stage. */
+  /** Lanes are a workflow track, so moving a card only changes its placement. */
   async function moveTo(opportunityId: string, laneId: string) {
     if (laneOf(data, opportunityId)?.id === laneId) return;
-    const stage = data.lanes.find((l) => l.id === laneId)?.stage_value;
-    if (!stage) {
-      toast.error("That column isn't linked to a stage yet");
-      return;
-    }
     try {
-      await move({ data: { opportunityId, stage } });
+      await move({ data: { opportunityId, laneId } });
       await invalidate();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not move that card");
@@ -57,13 +52,13 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
     await moveTo(opportunityId, laneId);
   }
 
-  /** Alt + Left/Right shifts a focused card to the neighbouring stage. */
+  /** Alt + Left/Right shifts a focused card to the neighbouring lane. */
   async function shiftLane(opportunity: Opportunity, direction: -1 | 1) {
     const current = laneOf(data, opportunity.id);
     const index = data.lanes.findIndex((l) => l.id === current?.id);
     const next = data.lanes[(index < 0 ? 0 : index) + direction];
     if (!next) {
-      setAnnouncement(`${opportunity.name} is already in the ${direction === 1 ? "last" : "first"} stage`);
+      setAnnouncement(`${opportunity.name} is already in the ${direction === 1 ? "last" : "first"} lane`);
       return;
     }
     setAnnouncement(`${opportunity.name} moved to ${next.label}`);

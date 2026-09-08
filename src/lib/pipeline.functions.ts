@@ -215,65 +215,24 @@ export const updateOpportunity = createServerFn({ method: "POST" })
 
 
 /**
- * Move a deal to another board column, which is the same thing as changing its
- * stage: probability, open/closed, the weighted value and the last stage change
- * date all follow, and the move is written to the deal's history.
+ * Move a deal to another workflow lane on the board. This is placement only —
+ * the deal's stage, probability and dates are untouched.
  */
-export const setOpportunityStage = createServerFn({ method: "POST" })
+export const setOpportunityLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ opportunityId: z.string().min(1), stage: z.string().trim().min(1) }).parse(input),
+    z.object({ opportunityId: z.string().min(1), laneId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    const { data: current, error: readError } = await supabase
-      .from("opportunities")
-      .select("*")
-      .eq("id", data.opportunityId)
-      .maybeSingle();
-    if (readError) throw new Error(readError.message);
-    if (!current) throw new Error("That opportunity no longer exists");
-    if (current.stage === data.stage) return { ok: true, changed: 0 };
-
-    const probability = probabilityForStage(data.stage) ?? current.probability;
-    const lastStageChange = todayDateString();
-    const derived = withCalculatedFields(
-      {
-        deal_value: current.deal_value,
-        probability,
-        stage: data.stage,
-        last_stage_change: lastStageChange,
-      },
-      { createdAt: current.created_at },
-    );
-
-    const updates = {
-      stage: data.stage,
-      probability,
-      last_stage_change: lastStageChange,
-      weighted_value: derived.weighted_value,
-      is_open: derived.is_open,
-      age_days: derived.age_days,
-      stage_duration_days: derived.stage_duration_days,
-    };
-
-    const { error } = await supabase
-      .from("opportunities")
-      .update(updates as never)
-      .eq("id", data.opportunityId);
-    if (error) throw new Error(error.message);
-
-    const { error: logError } = await supabase.from("opportunity_field_changes").insert([
+    const { error } = await context.supabase.from("opportunity_status").upsert(
       {
         opportunity_id: data.opportunityId,
-        field_name: "stage",
-        old_value: current.stage,
-        new_value: data.stage,
+        lane_id: data.laneId,
+        updated_at: new Date().toISOString(),
       },
-    ]);
-    if (logError) throw new Error(logError.message);
-
-    await recordSnapshots(supabase);
+      { onConflict: "opportunity_id" },
+    );
+    if (error) throw new Error(error.message);
     return { ok: true, changed: 1 };
   });
 
@@ -354,6 +313,21 @@ export const createOpportunity = createServerFn({ method: "POST" })
       .insert({ id: data.id, ...row } as never);
     if (error) throw new Error(error.message);
 
+    // Place the new deal in the default lane on the board.
+    const { data: defaultLane } = await supabase
+      .from("lanes")
+      .select("id")
+      .eq("is_default", true)
+      .maybeSingle();
+    if (defaultLane?.id) {
+      const { error: placeError } = await supabase
+        .from("opportunity_status")
+        .upsert(
+          { opportunity_id: data.id, lane_id: defaultLane.id },
+          { onConflict: "opportunity_id" },
+        );
+      if (placeError) throw new Error(placeError.message);
+    }
 
     await recordSnapshots(supabase);
     return { ok: true, id: data.id };
@@ -560,10 +534,7 @@ export const deletePicklistValue = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/**
- * Save a board column. A column is a stage, so renaming one renames the stage
- * on every deal that uses it and in the stage dropdown.
- */
+/** Save a board lane. Lanes are their own workflow track, separate from stage. */
 export const saveLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -580,54 +551,11 @@ export const saveLane = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
-    let stageValue = data.label;
-    if (data.id) {
-      const { data: existing, error: readError } = await supabase
-        .from("lanes")
-        .select("stage_value, label")
-        .eq("id", data.id)
-        .maybeSingle();
-      if (readError) throw new Error(readError.message);
-      if (!existing) throw new Error("That stage no longer exists");
-      const previous = existing.stage_value ?? existing.label;
-      stageValue = previous;
-
-      if (previous !== data.label) {
-        // Rename the stage everywhere it is stored.
-        const { error: dealError } = await supabase
-          .from("opportunities")
-          .update({ stage: data.label })
-          .eq("stage", previous);
-        if (dealError) throw new Error(dealError.message);
-
-        const { error: listError } = await supabase
-          .from("picklists")
-          .update({ value: data.label, label: data.label })
-          .eq("field_name", "stage")
-          .eq("value", previous);
-        if (listError) throw new Error(listError.message);
-
-        stageValue = data.label;
-      }
-    } else {
-      const { error: listError } = await supabase.from("picklists").upsert(
-        {
-          field_name: "stage",
-          value: data.label,
-          label: data.label,
-          position: data.position,
-        },
-        { onConflict: "field_name,value" },
-      );
-      if (listError) throw new Error(listError.message);
-    }
-
     const payload = {
       label: data.label,
       position: data.position,
       color: data.color,
       is_default: data.isDefault,
-      stage_value: stageValue,
     };
     if (data.isDefault) {
       const { error } = await supabase
@@ -643,64 +571,33 @@ export const saveLane = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Delete a stage after moving its deals to another stage. */
+/** Delete a lane after moving its deals to another lane. */
 export const deleteLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({ id: z.string().uuid(), reassignToLaneId: z.string().uuid() })
-      .refine((v) => v.id !== v.reassignToLaneId, "Pick a different stage to move deals to")
+      .refine((v) => v.id !== v.reassignToLaneId, "Pick a different lane to move deals to")
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: lanes, error: lanesError } = await supabase
       .from("lanes")
-      .select("id, is_default, label, stage_value");
+      .select("id, is_default, label");
     if (lanesError) throw new Error(lanesError.message);
-    if ((lanes ?? []).length <= 1) throw new Error("You need at least one stage on the board");
+    if ((lanes ?? []).length <= 1) throw new Error("You need at least one lane on the board");
     const removed = (lanes ?? []).find((l) => l.id === data.id);
     const target = (lanes ?? []).find((l) => l.id === data.reassignToLaneId);
-    if (!removed) throw new Error("That stage no longer exists");
-    if (!target) throw new Error("The stage you picked no longer exists");
+    if (!removed) throw new Error("That lane no longer exists");
+    if (!target) throw new Error("The lane you picked no longer exists");
 
-    const removedStage = removed.stage_value ?? removed.label;
-    const targetStage = target.stage_value ?? target.label;
-
-    const { data: moving, error: readError } = await supabase
-      .from("opportunities")
-      .select("id, deal_value, created_at")
-      .eq("stage", removedStage);
-    if (readError) throw new Error(readError.message);
-
-    if ((moving ?? []).length > 0) {
-      const probability = probabilityForStage(targetStage);
-      const today = todayDateString();
-      for (const deal of moving ?? []) {
-        const derived = withCalculatedFields(
-          {
-            deal_value: deal.deal_value,
-            probability,
-            stage: targetStage,
-            last_stage_change: today,
-          },
-          { createdAt: deal.created_at },
-        );
-        const { error: moveError } = await supabase
-          .from("opportunities")
-          .update({
-            stage: targetStage,
-            last_stage_change: today,
-            ...(probability == null ? {} : { probability }),
-            weighted_value: derived.weighted_value,
-            is_open: derived.is_open,
-            age_days: derived.age_days,
-            stage_duration_days: derived.stage_duration_days,
-          } as never)
-          .eq("id", deal.id);
-        if (moveError) throw new Error(moveError.message);
-      }
-    }
+    // Move every deal placed in this lane before the lane disappears.
+    const { error: moveError } = await supabase
+      .from("opportunity_status")
+      .update({ lane_id: data.reassignToLaneId, updated_at: new Date().toISOString() })
+      .eq("lane_id", data.id);
+    if (moveError) throw new Error(moveError.message);
 
     if (removed.is_default) {
       const { error: defaultError } = await supabase
@@ -710,16 +607,8 @@ export const deleteLane = createServerFn({ method: "POST" })
       if (defaultError) throw new Error(defaultError.message);
     }
 
-    const { error: listError } = await supabase
-      .from("picklists")
-      .delete()
-      .eq("field_name", "stage")
-      .eq("value", removedStage);
-    if (listError) throw new Error(listError.message);
-
     const { error } = await supabase.from("lanes").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
-    await recordSnapshots(supabase);
     return { ok: true };
   });
 
