@@ -310,6 +310,9 @@ export const importOpportunities = createServerFn({ method: "POST" })
 
   });
 
+const actionStatus = z.enum(["Open", "In progress", "Blocked", "Done"]);
+const actionPriority = z.enum(["High", "Medium", "Low"]);
+
 export const addAction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -319,6 +322,9 @@ export const addAction = createServerFn({ method: "POST" })
         text: z.string().min(1),
         owner: z.string().optional(),
         dueDate: z.string().optional(),
+        priority: actionPriority.default("Medium"),
+        status: actionStatus.default("Open"),
+        notes: z.string().optional(),
       })
       .parse(input),
   )
@@ -328,7 +334,47 @@ export const addAction = createServerFn({ method: "POST" })
       text: data.text,
       owner: data.owner || null,
       due_date: data.dueDate || null,
+      priority: data.priority,
+      status: data.status,
+      notes: data.notes || null,
+      done: data.status === "Done",
     });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Edit any part of an action. `done` stays in step with the status. */
+export const updateAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        text: z.string().min(1).optional(),
+        owner: z.string().nullable().optional(),
+        dueDate: z.string().nullable().optional(),
+        priority: actionPriority.optional(),
+        status: actionStatus.optional(),
+        notes: z.string().nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const updates: Record<string, unknown> = {};
+    if (data.text !== undefined) updates["text"] = data.text;
+    if (data.owner !== undefined) updates["owner"] = data.owner || null;
+    if (data.dueDate !== undefined) updates["due_date"] = data.dueDate || null;
+    if (data.priority !== undefined) updates["priority"] = data.priority;
+    if (data.notes !== undefined) updates["notes"] = data.notes || null;
+    if (data.status !== undefined) {
+      updates["status"] = data.status;
+      updates["done"] = data.status === "Done";
+    }
+    if (Object.keys(updates).length === 0) return { ok: true };
+    const { error } = await context.supabase
+      .from("actions")
+      .update(updates as never)
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -339,7 +385,7 @@ export const toggleAction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("actions")
-      .update({ done: data.done })
+      .update({ done: data.done, status: data.done ? "Done" : "Open" })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
