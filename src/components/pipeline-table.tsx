@@ -138,12 +138,19 @@ export function PipelineTable({ data }: { data: PipelineData }) {
             </option>
           ))}
         </select>
-        <div className="col-span-2 flex items-center gap-2 md:ml-auto">
+        <div className="col-span-2 flex flex-wrap items-center gap-2 md:ml-auto">
           <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
           <Label htmlFor="open-only" className="text-[13px] text-muted-foreground">
             Open only
           </Label>
+          <Switch id="overdue-only" checked={overdueOnly} onCheckedChange={setOverdueOnly} />
+          <Label htmlFor="overdue-only" className="text-[13px] text-muted-foreground">
+            Overdue actions
+          </Label>
           <span className="text-xs tabular-nums text-muted-foreground">{rows.length} rows</span>
+          <Button size="sm" className="h-8 shrink-0" onClick={() => setCreating(true)}>
+            New opportunity
+          </Button>
           <Button
             size="sm"
             variant="outline"
