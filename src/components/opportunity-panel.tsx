@@ -217,9 +217,22 @@ export function OpportunityPanel({
   }
 
   async function save() {
-    if (!opportunity || !patch || hasErrors) return;
+    if (!patch || hasErrors) return;
     setSaving(true);
     try {
+      if (creating) {
+        const reference = newId.trim();
+        if (!reference) {
+          toast.error("Give the opportunity a reference");
+          return;
+        }
+        await addOpportunity({ data: { id: reference, patch } });
+        await invalidate();
+        toast.success(`${reference} created`);
+        onClose();
+        return;
+      }
+      if (!opportunity) return;
       const result = await saveOpportunity({ data: { opportunityId: opportunity.id, patch } });
       await invalidate();
       toast.success(result.changed === 0 ? "Nothing to save" : "Changes saved");
@@ -230,19 +243,52 @@ export function OpportunityPanel({
     }
   }
 
+  async function destroy() {
+    if (!opportunity) return;
+    setSaving(true);
+    try {
+      await removeOpportunity({ data: { opportunityId: opportunity.id } });
+      await invalidate();
+      toast.success(`${opportunity.name} deleted`);
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete that opportunity");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <Sheet open={Boolean(opportunity)} onOpenChange={(open) => (open ? null : onClose())}>
+    <Sheet
+      open={creating || Boolean(opportunity)}
+      onOpenChange={(open) => (open ? null : onClose())}
+    >
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        {opportunity && draft ? (
+        {(creating || opportunity) && draft ? (
           <>
             <SheetHeader className="pb-0">
-              <div className="tech-label text-primary">Opportunity record // {opportunity.id}</div>
-              <SheetTitle className="text-base leading-snug">{savedOpportunity?.name}</SheetTitle>
-              <p className="text-xs text-muted-foreground">
-                {savedOpportunity?.account_name ?? "No client"} · {opportunity.id} · updated{" "}
-                {formatDate(savedOpportunity?.updated_at ?? null)}
-              </p>
-              <div className="flex items-center gap-2 pt-1">
+              <div className="tech-label text-primary">
+                {creating ? "New opportunity // draft" : `Opportunity record // ${opportunity?.id}`}
+              </div>
+              <SheetTitle className="text-base leading-snug">
+                {creating
+                  ? typeof draft.fields["name"] === "string" && draft.fields["name"].trim()
+                    ? String(draft.fields["name"])
+                    : "Untitled opportunity"
+                  : savedOpportunity?.name}
+              </SheetTitle>
+              {creating ? (
+                <p className="text-xs text-muted-foreground">
+                  Fill in at least a name and a stage. It lands in the default lane.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {savedOpportunity?.account_name ?? "No client"} · {opportunity?.id} · updated{" "}
+                  {formatDate(savedOpportunity?.updated_at ?? null)}
+                </p>
+              )}
+              {creating ? null : (
+                <div className="flex items-center gap-2 pt-1">
                 <span className="text-xs text-muted-foreground">Lane</span>
                 <select
                   className="h-7 rounded-md border border-input bg-card px-2 text-xs"
