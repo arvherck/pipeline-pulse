@@ -616,6 +616,12 @@ function FieldEditor({
         <Hint text={formatMoney(Number(text))} />
       ) : null}
       {field.kind === "percent" && !error && text.trim() !== "" ? <Hint text="0–100" /> : null}
+      {field.key === "probability" && !error && String(probabilityForStage(stage)) === text ? (
+        <Hint text="Suggested by the stage — type over it to change." />
+      ) : null}
+      {field.kind === "status" && !isOpen ? (
+        <Hint text="Taken from the stage while the deal is closed." />
+      ) : null}
       {options.length > 0 && missingOption && !error ? (
         <Hint text="This value isn't in the allowed list — pick one or add it in Settings." />
       ) : null}
