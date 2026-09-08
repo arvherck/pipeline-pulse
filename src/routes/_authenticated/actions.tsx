@@ -22,6 +22,7 @@ import {
   todayIso,
 } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
+import { exportWorkbook } from "@/lib/xlsx-export";
 
 export const Route = createFileRoute("/_authenticated/actions")({
   head: () => ({
