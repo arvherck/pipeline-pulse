@@ -541,7 +541,30 @@ function FieldEditor({
     <div className={cn("min-w-0", field.kind === "textarea" && "sm:col-span-2")}>
       <FieldLabel text={`${label}${field.required ? " *" : ""}`} />
 
-      {field.kind === "boolean" ? (
+      {field.kind === "status" ? (
+        !isOpen ? (
+          <p className="h-8 rounded-sm border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
+            {statusOutcomeForStage(stage) ?? text || "—"}
+          </p>
+        ) : (
+          <select
+            className="h-8 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
+            value={text}
+            aria-label={label}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <option value="">—</option>
+            {STATUS_NOTE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+            {text !== "" && !(STATUS_NOTE_OPTIONS as readonly string[]).includes(text) ? (
+              <option value={text}>{text} (not in list)</option>
+            ) : null}
+          </select>
+        )
+      ) : field.kind === "boolean" ? (
         <div className="flex h-8 items-center gap-2">
           <Switch checked={Boolean(value)} onCheckedChange={(checked) => onChange(checked)} />
           <span className="text-[13px]">{value ? "Open" : "Closed"}</span>
