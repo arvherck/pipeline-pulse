@@ -13,11 +13,11 @@ export function useInvalidatePipeline() {
   return () => queryClient.invalidateQueries({ queryKey: ["pipeline"] });
 }
 
-/** The board column a deal sits in — driven by its stage. */
+/** The workflow lane a deal sits in on the board. */
 export function laneOf(data: PipelineData, opportunityId: string): Lane | undefined {
-  const stage = data.opportunities.find((o) => o.id === opportunityId)?.stage?.trim();
-  if (stage) {
-    const match = data.lanes.find((l) => l.stage_value === stage);
+  const laneId = data.statuses.find((s) => s.opportunity_id === opportunityId)?.lane_id;
+  if (laneId) {
+    const match = data.lanes.find((l) => l.id === laneId);
     if (match) return match;
   }
   return data.lanes.find((l) => l.is_default) ?? data.lanes[0];
