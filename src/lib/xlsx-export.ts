@@ -59,7 +59,7 @@ export function exportWorkbook(
       }
       record[label(key)] = cell(row[key]);
     }
-    record["Board column"] = laneOf(data, row.id)?.label ?? null;
+    record["Board lane"] = laneOf(data, row.id)?.label ?? null;
     record["Open actions"] = rollups.get(row.id)?.open ?? 0;
     record["Overdue actions"] = rollups.get(row.id)?.overdue ?? 0;
     for (const [key, value] of Object.entries(row.custom_fields ?? {})) {
