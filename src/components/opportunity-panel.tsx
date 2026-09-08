@@ -2,19 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
+import { ActionList } from "@/components/action-list";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  addAction,
-  deleteAction,
+  createOpportunity,
+  deleteOpportunity,
   setOpportunityLane,
   setStatusNotes,
-  toggleAction,
   updateOpportunity,
 } from "@/lib/pipeline.functions";
 
