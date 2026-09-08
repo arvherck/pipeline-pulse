@@ -175,10 +175,12 @@ function LaneColumn({
 
 function Card({
   opportunity,
+  rollup,
   onSelect,
   onShift,
 }: {
   opportunity: Opportunity;
+  rollup: ActionRollup | null;
   onSelect: (opportunity: Opportunity) => void;
   onShift: (opportunity: Opportunity, direction: -1 | 1) => void;
 }) {
