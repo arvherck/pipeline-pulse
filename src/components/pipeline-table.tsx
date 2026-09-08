@@ -82,11 +82,18 @@ export function PipelineTable({ data }: { data: PipelineData }) {
   }
 
   function exportCsv() {
-    const header = [...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)), "Lane"];
+    const header = [
+      ...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)),
+      "Lane",
+      "Open actions",
+      "Overdue actions",
+    ];
 
     const body = rows.map((row) => [
       ...TABLE_COLUMNS.map((key) => exportCell(row, key)),
       laneOf(data, row.id)?.label ?? "",
+      String(rollups.get(row.id)?.open ?? 0),
+      String(rollups.get(row.id)?.overdue ?? 0),
     ]);
     downloadCsv(`pipeline-${todayStamp()}.csv`, toCsv(header, body));
   }
