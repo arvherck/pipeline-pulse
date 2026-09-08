@@ -60,7 +60,7 @@ export function ManageLanesPanel({
 
   function startDelete(lane: Lane) {
     if (lanes.length <= 1) {
-      toast.error("You need at least one lane on the board");
+      toast.error("You need at least one stage on the board");
       return;
     }
     setPendingDelete(lane);
@@ -80,12 +80,12 @@ export function ManageLanesPanel({
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <div className="tech-label text-primary">Board configuration</div>
-          <SheetTitle className="text-sm">Manage lanes</SheetTitle>
+          <SheetTitle className="text-sm">Manage stages</SheetTitle>
         </SheetHeader>
 
         <div className="space-y-4 px-4 pb-6">
           <p className="text-xs text-muted-foreground">
-            Lanes are the columns on the board. New imported deals land in the default lane.
+            Each column is a stage. Renaming one renames the stage on its deals; deleting one moves its deals to a stage you pick.
           </p>
 
           <ul className="space-y-1.5">
@@ -108,7 +108,7 @@ export function ManageLanesPanel({
                     onBlur={(e) => {
                       const value = e.target.value.trim();
                       if (!value || value === lane.label) return;
-                      void run(() => update(lane, { label: value }), "Could not rename the lane");
+                      void run(() => update(lane, { label: value }), "Could not rename the stage");
                     }}
                   />
                   <span className="w-6 shrink-0 text-center text-[11px] tabular-nums text-muted-foreground">
@@ -126,7 +126,7 @@ export function ManageLanesPanel({
                       void run(async () => {
                         await update(lane, { position: above.position });
                         await update(above, { position: lane.position });
-                      }, "Could not reorder lanes");
+                      }, "Could not reorder stages");
                     }}
                   >
                     ↑
@@ -143,7 +143,7 @@ export function ManageLanesPanel({
                       void run(async () => {
                         await update(lane, { position: below.position });
                         await update(below, { position: lane.position });
-                      }, "Could not reorder lanes");
+                      }, "Could not reorder stages");
                     }}
                   >
                     ↓
@@ -154,7 +154,7 @@ export function ManageLanesPanel({
                     className="px-2 text-[11px]"
                     disabled={busy || lane.is_default}
                     onClick={() =>
-                      run(() => update(lane, { is_default: true }), "Could not set the default lane")
+                      run(() => update(lane, { is_default: true }), "Could not set the default stage")
                     }
                   >
                     {lane.is_default ? "Default" : "Set default"}
@@ -180,7 +180,7 @@ export function ManageLanesPanel({
                     <select
                       className="h-8 w-full rounded-md border bg-background px-2 text-[13px]"
                       value={moveTo}
-                      aria-label="Move deals to lane"
+                      aria-label="Move deals to stage"
                       onChange={(e) => setMoveTo(e.target.value)}
                     >
                       {lanes
@@ -200,7 +200,7 @@ export function ManageLanesPanel({
                           run(async () => {
                             await remove({ data: { id: lane.id, reassignToLaneId: moveTo } });
                             setPendingDelete(null);
-                          }, "Could not delete the lane")
+                          }, "Could not delete the stage")
                         }
                       >
                         Move &amp; delete
@@ -221,11 +221,11 @@ export function ManageLanesPanel({
               className="size-8 shrink-0 rounded border bg-background"
               value={newColor}
               onChange={(e) => setNewColor(e.target.value)}
-              aria-label="New lane colour"
+              aria-label="New stage colour"
             />
             <Input
               className="h-8 text-[13px]"
-              placeholder="New lane name"
+              placeholder="New stage name"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
             />
@@ -243,7 +243,7 @@ export function ManageLanesPanel({
                     },
                   });
                   setNewLabel("");
-                }, "Could not add the lane")
+                }, "Could not add the stage")
               }
             >
               Add

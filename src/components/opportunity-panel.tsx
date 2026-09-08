@@ -12,12 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   createOpportunity,
   deleteOpportunity,
-  setOpportunityLane,
   setStatusNotes,
   updateOpportunity,
 } from "@/lib/pipeline.functions";
 
 import {
+  COMPUTED_FIELDS,
   EDITABLE_FIELDS,
   STATUS_NOTE_OPTIONS,
   isPicklistField,
@@ -26,6 +26,7 @@ import {
   statusOutcomeForStage,
   validatePatch,
   warningsFor,
+  withCalculatedFields,
   type EditableField,
   type OpportunityPatch,
 } from "@/lib/opportunity-schema";
@@ -38,6 +39,7 @@ import {
 } from "@/lib/pipeline-types";
 import { laneOf, useInvalidatePipeline } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
+
 
 type Draft = {
   fields: Record<string, string | boolean>;
@@ -120,7 +122,7 @@ export function OpportunityPanel({
   const saveOpportunity = useServerFn(updateOpportunity);
   const addOpportunity = useServerFn(createOpportunity);
   const removeOpportunity = useServerFn(deleteOpportunity);
-  const moveLane = useServerFn(setOpportunityLane);
+  
 
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -174,7 +176,23 @@ export function OpportunityPanel({
       : false;
   const hasErrors = Object.keys(errors).length > 0;
 
+  // Weighted value, open/closed and the day counts are worked out, not typed.
+  const computed = patch
+    ? withCalculatedFields(patch, { createdAt: savedOpportunity?.created_at ?? null })
+    : null;
+
+  function computedText(key: string): string {
+    if (!computed) return "—";
+    if (key === "weighted_value") return formatMoney(computed.weighted_value);
+    if (key === "is_open") return computed.is_open ? "Open" : "Closed";
+    if (key === "age_days") return computed.age_days == null ? "—" : `${computed.age_days} days`;
+    if (key === "stage_duration_days")
+      return computed.stage_duration_days == null ? "—" : `${computed.stage_duration_days} days`;
+    return "—";
+  }
+
   const label = (field: string) => labelFor(data.fieldLabels, field);
+
   const actions = opportunityId
     ? data.actions.filter((a) => a.opportunity_id === opportunityId)
     : [];
@@ -279,7 +297,8 @@ export function OpportunityPanel({
               </SheetTitle>
               {creating ? (
                 <p className="text-xs text-muted-foreground">
-                  Fill in at least a name and a stage. It lands in the default lane.
+                  Fill in at least a name and a stage. The stage decides which board column it
+                  shows in.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -287,34 +306,16 @@ export function OpportunityPanel({
                   {formatDate(savedOpportunity?.updated_at ?? null)}
                 </p>
               )}
-              {creating ? null : (
+              {creating || !opportunity ? null : (
                 <div className="flex items-center gap-2 pt-1">
-                <span className="text-xs text-muted-foreground">Lane</span>
-                <select
-                  className="h-7 rounded-md border border-input bg-card px-2 text-xs"
-                  aria-label="Lane"
-                  value={opportunity ? laneOf(data, opportunity.id)?.id ?? "" : ""}
-                  onChange={async (event) => {
-                    const laneId = event.target.value;
-                    if (!laneId || !opportunity) return;
-                    try {
-                      await moveLane({ data: { opportunityId: opportunity.id, laneId } });
-                      await invalidate();
-                    } catch (error) {
-                      toast.error(
-                        error instanceof Error ? error.message : "Could not move that card",
-                      );
-                    }
-                  }}
-                >
-                  {data.lanes.map((lane) => (
-                    <option key={lane.id} value={lane.id}>
-                      {lane.label}
-                    </option>
-                  ))}
-                </select>
+                  <span className="tech-label">Board column</span>
+                  <span className="data-value border px-1.5 py-0.5 text-xs font-semibold">
+                    {laneOf(data, opportunity.id)?.label ?? "—"}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">follows the stage below</span>
                 </div>
               )}
+
             </SheetHeader>
 
 
@@ -367,13 +368,17 @@ export function OpportunityPanel({
                       label={label(field.key)}
                       data={data}
                       value={draft.fields[field.key] ?? ""}
-                      isOpen={Boolean(draft.fields["is_open"])}
+                      isOpen={computed ? computed.is_open : Boolean(draft.fields["is_open"])}
                       stage={typeof draft.fields["stage"] === "string" ? draft.fields["stage"] : ""}
+                      computedText={
+                        COMPUTED_FIELDS.has(field.key) ? computedText(field.key) : undefined
+                      }
                       error={errors[field.key]}
                       warning={warnings[field.key]}
                       onChange={(value) => set(field.key, value)}
                     />
                   ))}
+
                 </div>
 
                 <section className="space-y-2 border-t pt-3">
@@ -574,6 +579,7 @@ function FieldEditor({
   value,
   isOpen,
   stage,
+  computedText,
   error,
   warning,
   onChange,
@@ -584,6 +590,7 @@ function FieldEditor({
   value: string | boolean;
   isOpen: boolean;
   stage: string;
+  computedText?: string | undefined;
   error?: string | undefined;
   warning?: string | undefined;
   onChange: (value: string | boolean) => void;
@@ -596,9 +603,22 @@ function FieldEditor({
   const missingOption =
     options.length > 0 && text !== "" && !options.some((option) => option.value === text);
 
+  if (computedText !== undefined) {
+    return (
+      <div className="min-w-0">
+        <FieldLabel text={label} />
+        <p className="data-value h-8 rounded-sm border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
+          {computedText}
+        </p>
+        <Hint text="Worked out for you — no need to fill this in." />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("min-w-0", field.kind === "textarea" && "sm:col-span-2")}>
       <FieldLabel text={`${label}${field.required ? " *" : ""}`} />
+
 
       {field.kind === "status" ? (
         !isOpen ? (

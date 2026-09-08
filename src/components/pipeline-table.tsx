@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { downloadCsv, toCsv, todayStamp } from "@/lib/csv";
+import { exportWorkbook } from "@/lib/xlsx-export";
 import {
   TABLE_COLUMNS,
   formatDate,
@@ -81,22 +81,11 @@ export function PipelineTable({ data }: { data: PipelineData }) {
     }
   }
 
-  function exportCsv() {
-    const header = [
-      ...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)),
-      "Lane",
-      "Open actions",
-      "Overdue actions",
-    ];
-
-    const body = rows.map((row) => [
-      ...TABLE_COLUMNS.map((key) => exportCell(row, key)),
-      laneOf(data, row.id)?.label ?? "",
-      String(rollups.get(row.id)?.open ?? 0),
-      String(rollups.get(row.id)?.overdue ?? 0),
-    ]);
-    downloadCsv(`pipeline-${todayStamp()}.csv`, toCsv(header, body));
+  /** One workbook: the rows on screen, plus their actions on a second tab. */
+  function exportExcel() {
+    exportWorkbook(data, rows);
   }
+
 
   return (
     <div className="space-y-3">
@@ -129,9 +118,10 @@ export function PipelineTable({ data }: { data: PipelineData }) {
           className="h-8 min-w-0 rounded-md border border-input bg-card px-2 text-[13px]"
           value={laneId}
           onChange={(e) => setLaneId(e.target.value)}
-          aria-label="Lane"
+          aria-label="Stage column"
         >
-          <option value="">All lanes</option>
+          <option value="">All stages</option>
+
           {data.lanes.map((lane) => (
             <option key={lane.id} value={lane.id}>
               {lane.label}
@@ -155,12 +145,13 @@ export function PipelineTable({ data }: { data: PipelineData }) {
             size="sm"
             variant="outline"
             className="ml-auto h-8 shrink-0 md:ml-0"
-            onClick={exportCsv}
+            onClick={exportExcel}
             disabled={rows.length === 0}
           >
             <Download className="mr-1 size-3.5" aria-hidden />
-            Export CSV
+            Export Excel
           </Button>
+
         </div>
       </div>
 
@@ -186,7 +177,7 @@ export function PipelineTable({ data }: { data: PipelineData }) {
                 </th>
               ))}
               <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
-                Lane
+                Stage column
               </th>
               <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
                 Actions
@@ -270,14 +261,6 @@ function renderCell(row: Opportunity, key: keyof Opportunity & string) {
   return String(value);
 }
 
-/** Spreadsheet-friendly value: full numbers, ISO dates, empty for blanks. */
-function exportCell(row: Opportunity, key: keyof Opportunity & string): string {
-  const value = row[key];
-  if (key === "is_open") return row.is_open ? "Open" : "Closed";
-  if (value == null || value === "") return "";
-  if (key.includes("date")) return String(value).slice(0, 10);
-  return String(value);
-}
 
 
 
