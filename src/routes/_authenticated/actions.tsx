@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ActionBadge, priorityClass } from "@/components/action-list";
 import { AppShell } from "@/components/app-shell";
 import { OpportunityPanel } from "@/components/opportunity-panel";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -92,17 +93,23 @@ function ActionsPage() {
           <div className="tech-label mb-1 text-primary">Task control // live</div>
           <h1 className="font-display text-3xl font-bold uppercase">Actions</h1>
         </div>
-        <div className="text-right">
-          <div className="tech-label">Overdue</div>
-          <div
-            className={cn(
-              "data-value font-display text-2xl font-bold",
-              overdueCount > 0 ? "text-destructive" : "text-muted-foreground",
-            )}
-          >
-            {String(overdueCount).padStart(2, "0")}
+        <div className="flex items-end gap-4">
+          <Button size="sm" variant="outline" onClick={() => exportWorkbook(data)}>
+            Export Excel
+          </Button>
+          <div className="text-right">
+            <div className="tech-label">Overdue</div>
+            <div
+              className={cn(
+                "data-value font-display text-2xl font-bold",
+                overdueCount > 0 ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {String(overdueCount).padStart(2, "0")}
+            </div>
           </div>
         </div>
+
       </header>
 
       <div className="tech-panel grid grid-cols-2 gap-2 border-l-4 border-l-primary p-3 md:flex md:flex-wrap md:items-center">
