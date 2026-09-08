@@ -215,65 +215,24 @@ export const updateOpportunity = createServerFn({ method: "POST" })
 
 
 /**
- * Move a deal to another board column, which is the same thing as changing its
- * stage: probability, open/closed, the weighted value and the last stage change
- * date all follow, and the move is written to the deal's history.
+ * Move a deal to another workflow lane on the board. This is placement only —
+ * the deal's stage, probability and dates are untouched.
  */
-export const setOpportunityStage = createServerFn({ method: "POST" })
+export const setOpportunityLane = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ opportunityId: z.string().min(1), stage: z.string().trim().min(1) }).parse(input),
+    z.object({ opportunityId: z.string().min(1), laneId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    const { data: current, error: readError } = await supabase
-      .from("opportunities")
-      .select("*")
-      .eq("id", data.opportunityId)
-      .maybeSingle();
-    if (readError) throw new Error(readError.message);
-    if (!current) throw new Error("That opportunity no longer exists");
-    if (current.stage === data.stage) return { ok: true, changed: 0 };
-
-    const probability = probabilityForStage(data.stage) ?? current.probability;
-    const lastStageChange = todayDateString();
-    const derived = withCalculatedFields(
-      {
-        deal_value: current.deal_value,
-        probability,
-        stage: data.stage,
-        last_stage_change: lastStageChange,
-      },
-      { createdAt: current.created_at },
-    );
-
-    const updates = {
-      stage: data.stage,
-      probability,
-      last_stage_change: lastStageChange,
-      weighted_value: derived.weighted_value,
-      is_open: derived.is_open,
-      age_days: derived.age_days,
-      stage_duration_days: derived.stage_duration_days,
-    };
-
-    const { error } = await supabase
-      .from("opportunities")
-      .update(updates as never)
-      .eq("id", data.opportunityId);
-    if (error) throw new Error(error.message);
-
-    const { error: logError } = await supabase.from("opportunity_field_changes").insert([
+    const { error } = await context.supabase.from("opportunity_status").upsert(
       {
         opportunity_id: data.opportunityId,
-        field_name: "stage",
-        old_value: current.stage,
-        new_value: data.stage,
+        lane_id: data.laneId,
+        updated_at: new Date().toISOString(),
       },
-    ]);
-    if (logError) throw new Error(logError.message);
-
-    await recordSnapshots(supabase);
+      { onConflict: "opportunity_id" },
+    );
+    if (error) throw new Error(error.message);
     return { ok: true, changed: 1 };
   });
 
