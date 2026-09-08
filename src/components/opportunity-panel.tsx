@@ -293,10 +293,10 @@ export function OpportunityPanel({
                 <select
                   className="h-7 rounded-md border border-input bg-card px-2 text-xs"
                   aria-label="Lane"
-                  value={laneOf(data, opportunity.id)?.id ?? ""}
+                  value={opportunity ? laneOf(data, opportunity.id)?.id ?? "" : ""}
                   onChange={async (event) => {
                     const laneId = event.target.value;
-                    if (!laneId) return;
+                    if (!laneId || !opportunity) return;
                     try {
                       await moveLane({ data: { opportunityId: opportunity.id, laneId } });
                       await invalidate();
