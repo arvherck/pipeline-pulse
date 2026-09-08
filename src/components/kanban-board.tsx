@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function KanbanBoard({ data }: { data: PipelineData }) {
-  const move = useServerFn(setOpportunityStage);
+  const move = useServerFn(setOpportunityLane);
   const invalidate = useInvalidatePipeline();
   const [selected, setSelected] = useState<Opportunity | null>(null);
   const [creating, setCreating] = useState(false);
@@ -34,16 +34,11 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
   const rollups = actionRollups(data);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  /** Columns are stages, so moving a card changes the deal's stage. */
+  /** Lanes are a workflow track, so moving a card only changes its placement. */
   async function moveTo(opportunityId: string, laneId: string) {
     if (laneOf(data, opportunityId)?.id === laneId) return;
-    const stage = data.lanes.find((l) => l.id === laneId)?.stage_value;
-    if (!stage) {
-      toast.error("That column isn't linked to a stage yet");
-      return;
-    }
     try {
-      await move({ data: { opportunityId, stage } });
+      await move({ data: { opportunityId, laneId } });
       await invalidate();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not move that card");
