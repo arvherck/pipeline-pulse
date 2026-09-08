@@ -214,12 +214,29 @@ export function PipelineTable({ data }: { data: PipelineData }) {
                 <td className="px-2.5 py-1.5 text-muted-foreground">
                   {laneOf(data, row.id)?.label ?? "—"}
                 </td>
+                <td className="whitespace-nowrap px-2.5 py-1.5 text-xs">
+                  {(() => {
+                    const rollup = rollups.get(row.id);
+                    if (!rollup || rollup.open === 0)
+                      return <span className="text-muted-foreground">None</span>;
+                    return (
+                      <span>
+                        <span className="tabular-nums">{rollup.open} open</span>
+                        {rollup.overdue > 0 ? (
+                          <span className="ml-1 font-semibold text-destructive">
+                            {rollup.overdue} overdue
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })()}
+                </td>
               </tr>
             ))}
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={TABLE_COLUMNS.length + 1}
+                  colSpan={TABLE_COLUMNS.length + 2}
                   className="px-2.5 py-6 text-center text-muted-foreground"
                 >
                   Nothing matches those filters.
