@@ -28,14 +28,18 @@ export function PipelineTable({ data }: { data: PipelineData }) {
   const [segment, setSegment] = useState("");
   const [laneId, setLaneId] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("close_date");
   const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<Opportunity | null>(null);
+  const [creating, setCreating] = useState(false);
+  const rollups = useMemo(() => actionRollups(data), [data]);
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const filtered = data.opportunities.filter((o) => {
       if (openOnly && !o.is_open) return false;
+      if (overdueOnly && (rollups.get(o.id)?.overdue ?? 0) === 0) return false;
       if (category && o.category !== category) return false;
       if (region && o.region !== region) return false;
       if (segment && o.segment !== segment) return false;
