@@ -20,7 +20,11 @@ import {
 
 import {
   EDITABLE_FIELDS,
+  STATUS_NOTE_OPTIONS,
   isPicklistField,
+  probabilityForStage,
+  segmentMismatch,
+  statusOutcomeForStage,
   validatePatch,
   warningsFor,
   type EditableField,
