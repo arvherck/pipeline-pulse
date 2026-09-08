@@ -1,7 +1,7 @@
 import { queryOptions, useQueryClient } from "@tanstack/react-query";
 
 import { getPipeline } from "./pipeline.functions";
-import type { Lane, Opportunity, PipelineData } from "./pipeline-types";
+import type { Action, Lane, Opportunity, PipelineData } from "./pipeline-types";
 
 export const pipelineQueryOptions = queryOptions({
   queryKey: ["pipeline"],
