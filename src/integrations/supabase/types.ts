@@ -20,8 +20,11 @@ export type Database = {
           done: boolean
           due_date: string | null
           id: string
+          notes: string | null
           opportunity_id: string
           owner: string | null
+          priority: string
+          status: string
           text: string
         }
         Insert: {
@@ -29,8 +32,11 @@ export type Database = {
           done?: boolean
           due_date?: string | null
           id?: string
+          notes?: string | null
           opportunity_id: string
           owner?: string | null
+          priority?: string
+          status?: string
           text: string
         }
         Update: {
@@ -38,8 +44,11 @@ export type Database = {
           done?: boolean
           due_date?: string | null
           id?: string
+          notes?: string | null
           opportunity_id?: string
           owner?: string | null
+          priority?: string
+          status?: string
           text?: string
         }
         Relationships: [
