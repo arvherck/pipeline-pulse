@@ -13,6 +13,7 @@ const NAV = [
   { to: "/board", label: "Board" },
 
   { to: "/table", label: "Table" },
+  { to: "/actions", label: "Actions" },
   { to: "/import", label: "Import data" },
   { to: "/settings", label: "Settings" },
 ] as const;

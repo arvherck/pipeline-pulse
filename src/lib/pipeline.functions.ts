@@ -257,6 +257,65 @@ const opportunityRowSchema = z.object({
     .default({}),
 });
 
+/** Create a deal by hand. The reference must be free so imports still match. */
+export const createOpportunity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({ id: z.string().trim().min(1, "A reference is required"), patch: opportunityPatchSchema })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: clash, error: clashError } = await supabase
+      .from("opportunities")
+      .select("id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (clashError) throw new Error(clashError.message);
+    if (clash) throw new Error(`${data.id} is already used by another opportunity`);
+
+    const { error } = await supabase
+      .from("opportunities")
+      .insert({ id: data.id, ...data.patch } as never);
+    if (error) throw new Error(error.message);
+
+    const { data: lanes, error: laneError } = await supabase
+      .from("lanes")
+      .select("id, position, is_default")
+      .order("position", { ascending: true });
+    if (laneError) throw new Error(laneError.message);
+    const lane = lanes?.find((l) => l.is_default) ?? lanes?.[0];
+    if (lane) {
+      const { error: statusError } = await supabase
+        .from("opportunity_status")
+        .upsert({ opportunity_id: data.id, lane_id: lane.id }, { onConflict: "opportunity_id" });
+      if (statusError) throw new Error(statusError.message);
+    }
+
+    await recordSnapshots(supabase);
+    return { ok: true, id: data.id };
+  });
+
+/** Remove a deal for good, along with its actions, lane placement and history. */
+export const deleteOpportunity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    for (const table of ["actions", "opportunity_field_changes", "opportunity_status"] as const) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq("opportunity_id", data.opportunityId);
+      if (error) throw new Error(error.message);
+    }
+    const { error } = await supabase.from("opportunities").delete().eq("id", data.opportunityId);
+    if (error) throw new Error(error.message);
+    await recordSnapshots(supabase);
+    return { ok: true };
+  });
+
 export const importOpportunities = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ rows: z.array(opportunityRowSchema).min(1) }).parse(input))
@@ -310,6 +369,9 @@ export const importOpportunities = createServerFn({ method: "POST" })
 
   });
 
+const actionStatus = z.enum(["Open", "In progress", "Blocked", "Done"]);
+const actionPriority = z.enum(["High", "Medium", "Low"]);
+
 export const addAction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -319,6 +381,9 @@ export const addAction = createServerFn({ method: "POST" })
         text: z.string().min(1),
         owner: z.string().optional(),
         dueDate: z.string().optional(),
+        priority: actionPriority.default("Medium"),
+        status: actionStatus.default("Open"),
+        notes: z.string().optional(),
       })
       .parse(input),
   )
@@ -328,7 +393,47 @@ export const addAction = createServerFn({ method: "POST" })
       text: data.text,
       owner: data.owner || null,
       due_date: data.dueDate || null,
+      priority: data.priority,
+      status: data.status,
+      notes: data.notes || null,
+      done: data.status === "Done",
     });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Edit any part of an action. `done` stays in step with the status. */
+export const updateAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        text: z.string().min(1).optional(),
+        owner: z.string().nullable().optional(),
+        dueDate: z.string().nullable().optional(),
+        priority: actionPriority.optional(),
+        status: actionStatus.optional(),
+        notes: z.string().nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const updates: Record<string, unknown> = {};
+    if (data.text !== undefined) updates["text"] = data.text;
+    if (data.owner !== undefined) updates["owner"] = data.owner || null;
+    if (data.dueDate !== undefined) updates["due_date"] = data.dueDate || null;
+    if (data.priority !== undefined) updates["priority"] = data.priority;
+    if (data.notes !== undefined) updates["notes"] = data.notes || null;
+    if (data.status !== undefined) {
+      updates["status"] = data.status;
+      updates["done"] = data.status === "Done";
+    }
+    if (Object.keys(updates).length === 0) return { ok: true };
+    const { error } = await context.supabase
+      .from("actions")
+      .update(updates as never)
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -339,7 +444,7 @@ export const toggleAction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("actions")
-      .update({ done: data.done })
+      .update({ done: data.done, status: data.done ? "Done" : "Open" })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };

@@ -20,14 +20,17 @@ import {
   type Opportunity,
   type PipelineData,
 } from "@/lib/pipeline-types";
-import { laneOf, sum, useInvalidatePipeline } from "@/lib/use-pipeline";
+import { actionRollups, laneOf, sum, useInvalidatePipeline, type ActionRollup } from "@/lib/use-pipeline";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function KanbanBoard({ data }: { data: PipelineData }) {
   const move = useServerFn(setOpportunityLane);
   const invalidate = useInvalidatePipeline();
   const [selected, setSelected] = useState<Opportunity | null>(null);
+  const [creating, setCreating] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const rollups = actionRollups(data);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   async function moveTo(opportunityId: string, laneId: string) {
@@ -60,19 +63,44 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
     await moveTo(opportunity.id, next.id);
   }
 
+  const panel = (
+    <OpportunityPanel
+      data={data}
+      opportunity={selected}
+      creating={creating}
+      onClose={() => {
+        setSelected(null);
+        setCreating(false);
+      }}
+    />
+  );
+
+  const newButton = (
+    <Button size="sm" onClick={() => setCreating(true)}>
+      New opportunity
+    </Button>
+  );
+
   if (data.opportunities.length === 0) {
     return (
-      <p className="rounded-md border bg-card p-6 text-sm text-muted-foreground">
-        No opportunities yet — head to Import data to load a spreadsheet export.
-      </p>
+      <>
+        <div className="rounded-md border bg-card p-6 text-sm text-muted-foreground">
+          <p>No opportunities yet — import a spreadsheet, or add one by hand.</p>
+          <div className="mt-3">{newButton}</div>
+        </div>
+        {panel}
+      </>
     );
   }
 
   return (
     <>
-      <p className="tech-label mb-3 border-l-2 border-primary pl-2">
-        Key controls // Tab selects · Alt + ← / → moves · Enter opens
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="tech-label border-l-2 border-primary pl-2">
+          Key controls // Tab selects · Alt + ← / → moves · Enter opens
+        </p>
+        {newButton}
+      </div>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-3">
           {data.lanes.map((lane) => (
@@ -80,6 +108,7 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
               key={lane.id}
               lane={lane}
               cards={data.opportunities.filter((o) => laneOf(data, o.id)?.id === lane.id)}
+              rollups={rollups}
               onSelect={setSelected}
               onShift={shiftLane}
             />
@@ -89,7 +118,7 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
-      <OpportunityPanel data={data} opportunity={selected} onClose={() => setSelected(null)} />
+      {panel}
     </>
   );
 }
@@ -97,11 +126,13 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
 function LaneColumn({
   lane,
   cards,
+  rollups,
   onSelect,
   onShift,
 }: {
   lane: Lane;
   cards: Opportunity[];
+  rollups: Map<string, ActionRollup>;
   onSelect: (opportunity: Opportunity) => void;
   onShift: (opportunity: Opportunity, direction: -1 | 1) => void;
 }) {
@@ -129,7 +160,13 @@ function LaneColumn({
       </div>
       <div className="flex flex-col gap-2 p-2">
         {cards.map((card) => (
-          <Card key={card.id} opportunity={card} onSelect={onSelect} onShift={onShift} />
+          <Card
+            key={card.id}
+            opportunity={card}
+            rollup={rollups.get(card.id) ?? null}
+            onSelect={onSelect}
+            onShift={onShift}
+          />
         ))}
       </div>
     </section>
@@ -138,10 +175,12 @@ function LaneColumn({
 
 function Card({
   opportunity,
+  rollup,
   onSelect,
   onShift,
 }: {
   opportunity: Opportunity;
+  rollup: ActionRollup | null;
   onSelect: (opportunity: Opportunity) => void;
   onShift: (opportunity: Opportunity, direction: -1 | 1) => void;
 }) {
@@ -187,6 +226,25 @@ function Card({
       <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
         <span className="truncate">{opportunity.stage ?? "—"}</span>
         <span className="truncate">{opportunity.owner ?? ""}</span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+        {rollup && rollup.open > 0 ? (
+          <span className="border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
+            {rollup.open} open action{rollup.open === 1 ? "" : "s"}
+          </span>
+        ) : (
+          <span className="border border-border px-1.5 py-0.5 uppercase tracking-wide text-muted-foreground">
+            No actions
+          </span>
+        )}
+        {rollup && rollup.overdue > 0 ? (
+          <span className="border border-destructive/50 bg-destructive/10 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-destructive">
+            {rollup.overdue} overdue
+          </span>
+        ) : null}
+        {rollup?.nextDue && rollup.overdue === 0 ? (
+          <span className="text-muted-foreground">next {formatDate(rollup.nextDue)}</span>
+        ) : null}
       </div>
     </article>
   );

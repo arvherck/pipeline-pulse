@@ -41,6 +41,9 @@ export type OpportunityStatus = {
   updated_at: string;
 };
 
+export const ACTION_STATUSES = ["Open", "In progress", "Blocked", "Done"] as const;
+export const ACTION_PRIORITIES = ["High", "Medium", "Low"] as const;
+
 export type Action = {
   id: string;
   opportunity_id: string;
@@ -48,6 +51,9 @@ export type Action = {
   owner: string | null;
   due_date: string | null;
   done: boolean;
+  priority: string;
+  status: string;
+  notes: string | null;
   created_at: string;
 };
 

@@ -2,19 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
+import { ActionList } from "@/components/action-list";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  addAction,
-  deleteAction,
+  createOpportunity,
+  deleteOpportunity,
   setOpportunityLane,
   setStatusNotes,
-  toggleAction,
   updateOpportunity,
 } from "@/lib/pipeline.functions";
 
@@ -86,33 +85,52 @@ function toPatch(draft: Draft): OpportunityPatch {
   return patch as OpportunityPatch;
 }
 
+/** An empty draft for a brand-new deal. */
+function blankDraft(): Draft {
+  const fields: Record<string, string | boolean> = {};
+  for (const field of EDITABLE_FIELDS) {
+    fields[field.key] = field.kind === "boolean" ? true : "";
+  }
+  return { fields, custom: {} };
+}
+
+/** Next free MAN-0001 style reference, based on what is already loaded. */
+export function nextReference(rows: Opportunity[]): string {
+  let highest = 0;
+  for (const row of rows) {
+    const match = /^MAN-(\d+)$/.exec(row.id);
+    if (match?.[1]) highest = Math.max(highest, Number(match[1]));
+  }
+  return `MAN-${String(highest + 1).padStart(4, "0")}`;
+}
+
 export function OpportunityPanel({
   data,
   opportunity,
+  creating = false,
   onClose,
 }: {
   data: PipelineData;
   opportunity: Opportunity | null;
+  creating?: boolean;
   onClose: () => void;
 }) {
   const invalidate = useInvalidatePipeline();
   const saveNotes = useServerFn(setStatusNotes);
-  const createAction = useServerFn(addAction);
-  const flipAction = useServerFn(toggleAction);
-  const removeAction = useServerFn(deleteAction);
   const saveOpportunity = useServerFn(updateOpportunity);
+  const addOpportunity = useServerFn(createOpportunity);
+  const removeOpportunity = useServerFn(deleteOpportunity);
   const moveLane = useServerFn(setOpportunityLane);
 
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState("");
-  const [actionText, setActionText] = useState("");
-  const [actionOwner, setActionOwner] = useState("");
-  const [actionDue, setActionDue] = useState("");
+  const [newId, setNewId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [newCustomKey, setNewCustomKey] = useState("");
 
-  const opportunityId = opportunity?.id ?? "";
+  const opportunityId = creating ? "" : opportunity?.id ?? "";
   const savedOpportunity = useMemo(
     () => data.opportunities.find((o) => o.id === opportunityId),
     [data.opportunities, opportunityId],
@@ -124,24 +142,34 @@ export function OpportunityPanel({
   // Seed the form only when a different deal is opened, so a background
   // refresh never wipes what is being typed.
   useEffect(() => {
+    if (creating) {
+      setDraft(blankDraft());
+      setNotes("");
+      setConfirmDelete(false);
+      setNewId(nextReference(latest.current.opportunities));
+      return;
+    }
     if (!opportunityId) {
       setDraft(null);
       return;
     }
+    setConfirmDelete(false);
     setNotes(
       latest.current.statuses.find((s) => s.opportunity_id === opportunityId)?.notes ?? "",
     );
     const row = latest.current.opportunities.find((o) => o.id === opportunityId);
     if (row) setDraft(toDraft(row));
-  }, [opportunityId]);
+  }, [opportunityId, creating]);
+
 
 
   const patch = draft ? toPatch(draft) : null;
   const errors = patch ? validatePatch(patch) : {};
   const warnings = patch ? warningsFor(patch) : {};
   const segmentWarning = patch ? segmentMismatch(patch) : null;
-  const dirty =
-    draft && savedOpportunity
+  const dirty = creating
+    ? true
+    : draft && savedOpportunity
       ? JSON.stringify(draft) !== JSON.stringify(toDraft(savedOpportunity))
       : false;
   const hasErrors = Object.keys(errors).length > 0;
@@ -189,9 +217,22 @@ export function OpportunityPanel({
   }
 
   async function save() {
-    if (!opportunity || !patch || hasErrors) return;
+    if (!patch || hasErrors) return;
     setSaving(true);
     try {
+      if (creating) {
+        const reference = newId.trim();
+        if (!reference) {
+          toast.error("Give the opportunity a reference");
+          return;
+        }
+        await addOpportunity({ data: { id: reference, patch } });
+        await invalidate();
+        toast.success(`${reference} created`);
+        onClose();
+        return;
+      }
+      if (!opportunity) return;
       const result = await saveOpportunity({ data: { opportunityId: opportunity.id, patch } });
       await invalidate();
       toast.success(result.changed === 0 ? "Nothing to save" : "Changes saved");
@@ -202,27 +243,60 @@ export function OpportunityPanel({
     }
   }
 
+  async function destroy() {
+    if (!opportunity) return;
+    setSaving(true);
+    try {
+      await removeOpportunity({ data: { opportunityId: opportunity.id } });
+      await invalidate();
+      toast.success(`${opportunity.name} deleted`);
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete that opportunity");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <Sheet open={Boolean(opportunity)} onOpenChange={(open) => (open ? null : onClose())}>
+    <Sheet
+      open={creating || Boolean(opportunity)}
+      onOpenChange={(open) => (open ? null : onClose())}
+    >
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        {opportunity && draft ? (
+        {(creating || opportunity) && draft ? (
           <>
             <SheetHeader className="pb-0">
-              <div className="tech-label text-primary">Opportunity record // {opportunity.id}</div>
-              <SheetTitle className="text-base leading-snug">{savedOpportunity?.name}</SheetTitle>
-              <p className="text-xs text-muted-foreground">
-                {savedOpportunity?.account_name ?? "No client"} · {opportunity.id} · updated{" "}
-                {formatDate(savedOpportunity?.updated_at ?? null)}
-              </p>
-              <div className="flex items-center gap-2 pt-1">
+              <div className="tech-label text-primary">
+                {creating ? "New opportunity // draft" : `Opportunity record // ${opportunity?.id}`}
+              </div>
+              <SheetTitle className="text-base leading-snug">
+                {creating
+                  ? typeof draft.fields["name"] === "string" && draft.fields["name"].trim()
+                    ? String(draft.fields["name"])
+                    : "Untitled opportunity"
+                  : savedOpportunity?.name}
+              </SheetTitle>
+              {creating ? (
+                <p className="text-xs text-muted-foreground">
+                  Fill in at least a name and a stage. It lands in the default lane.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {savedOpportunity?.account_name ?? "No client"} · {opportunity?.id} · updated{" "}
+                  {formatDate(savedOpportunity?.updated_at ?? null)}
+                </p>
+              )}
+              {creating ? null : (
+                <div className="flex items-center gap-2 pt-1">
                 <span className="text-xs text-muted-foreground">Lane</span>
                 <select
                   className="h-7 rounded-md border border-input bg-card px-2 text-xs"
                   aria-label="Lane"
-                  value={laneOf(data, opportunity.id)?.id ?? ""}
+                  value={opportunity ? laneOf(data, opportunity.id)?.id ?? "" : ""}
                   onChange={async (event) => {
                     const laneId = event.target.value;
-                    if (!laneId) return;
+                    if (!laneId || !opportunity) return;
                     try {
                       await moveLane({ data: { opportunityId: opportunity.id, laneId } });
                       await invalidate();
@@ -239,7 +313,8 @@ export function OpportunityPanel({
                     </option>
                   ))}
                 </select>
-              </div>
+                </div>
+              )}
             </SheetHeader>
 
 
@@ -266,10 +341,23 @@ export function OpportunityPanel({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <FieldLabel text={label("id")} />
-                    <p className="h-8 rounded-md border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
-                      {opportunity.id}
-                    </p>
-                    <Hint text="Set at import — used to match rows, so it can't be changed." />
+                    {creating ? (
+                      <>
+                        <Input
+                          className="h-8 text-[13px]"
+                          value={newId}
+                          onChange={(e) => setNewId(e.target.value)}
+                        />
+                        <Hint text="Suggested reference — change it to match your own numbering if you like." />
+                      </>
+                    ) : (
+                      <>
+                        <p className="h-8 rounded-md border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
+                          {opportunity?.id}
+                        </p>
+                        <Hint text="Set at import — used to match rows, so it can't be changed." />
+                      </>
+                    )}
                   </div>
 
                   {EDITABLE_FIELDS.map((field) => (
@@ -336,139 +424,110 @@ export function OpportunityPanel({
                   </div>
                 </section>
 
+                {creating ? null : (
+                  <section className="space-y-2 border-t pt-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Danger zone
+                    </h3>
+                    {confirmDelete ? (
+                      <div className="rounded-sm border border-destructive/50 bg-destructive/10 p-3">
+                        <p className="text-[13px]">
+                          Delete <strong>{savedOpportunity?.name ?? opportunity?.id}</strong> for
+                          good? Its actions and change history go too. This can't be undone.
+                        </p>
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={saving}
+                            onClick={destroy}
+                          >
+                            Yes, delete it
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmDelete(false)}
+                            disabled={saving}
+                          >
+                            Keep it
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                        onClick={() => setConfirmDelete(true)}
+                      >
+                        Delete opportunity
+                      </Button>
+                    )}
+                  </section>
+                )}
+
                 <div className="sticky bottom-0 -mx-4 flex items-center gap-2 border-t-2 border-primary/30 bg-background/95 px-4 py-3 backdrop-blur-sm">
                   <Button size="sm" disabled={hasErrors || !dirty || saving} onClick={save}>
-                    {saving ? "Saving…" : "Save"}
+                    {saving ? "Saving…" : creating ? "Create opportunity" : "Save"}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={!dirty || saving}
-                    onClick={() => savedOpportunity && setDraft(toDraft(savedOpportunity))}
+                    disabled={saving}
+                    onClick={() =>
+                      creating
+                        ? onClose()
+                        : savedOpportunity && setDraft(toDraft(savedOpportunity))
+                    }
                   >
-                    Discard
+                    {creating ? "Cancel" : "Discard"}
                   </Button>
                   <span className="text-xs text-muted-foreground">
                     {hasErrors
                       ? "Fix the highlighted fields to save"
-                      : dirty
-                        ? "Unsaved changes"
-                        : "All changes saved"}
+                      : creating
+                        ? "Not saved yet"
+                        : dirty
+                          ? "Unsaved changes"
+                          : "All changes saved"}
                   </span>
                 </div>
               </TabsContent>
 
               <TabsContent value="actions" className="space-y-6">
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Status note
-                  </h3>
-                  <Textarea
-                    className="mt-2 min-h-20 text-[13px]"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="What's happening with this deal?"
-                  />
-                  <Button
-                    size="sm"
-                    className="mt-2"
-                    onClick={async () => {
-                      await saveNotes({ data: { opportunityId: opportunity.id, notes } });
-                      await invalidate();
-                      toast.success("Note saved");
-                    }}
-                  >
-                    Save note
-                  </Button>
-                </section>
-
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Follow-up actions
-                  </h3>
-                  <ul className="mt-2 space-y-1.5">
-                    {actions.length === 0 ? (
-                      <li className="text-[13px] text-muted-foreground">No actions yet.</li>
-                    ) : null}
-                    {actions.map((action) => (
-                      <li key={action.id} className="flex items-start gap-2 text-[13px]">
-                        <Checkbox
-                          checked={action.done}
-                          className="mt-0.5"
-                          onCheckedChange={async (checked) => {
-                            await flipAction({ data: { id: action.id, done: Boolean(checked) } });
-                            await invalidate();
-                          }}
-                        />
-                        <span className={action.done ? "line-through text-muted-foreground" : ""}>
-                          {action.text}
-                          {action.owner ? (
-                            <span className="text-muted-foreground"> · {action.owner}</span>
-                          ) : null}
-                          {action.due_date ? (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · due {formatDate(action.due_date)}
-                            </span>
-                          ) : null}
-                        </span>
-                        <button
-                          type="button"
-                          className="ml-auto text-xs text-muted-foreground hover:text-destructive"
-                          onClick={async () => {
-                            await removeAction({ data: { id: action.id } });
-                            await invalidate();
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-3 space-y-2">
-                    <Input
-                      className="h-8 text-[13px]"
-                      placeholder="New action"
-                      value={actionText}
-                      onChange={(e) => setActionText(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <Input
-                        className="h-8 text-[13px]"
-                        placeholder="Owner"
-                        value={actionOwner}
-                        onChange={(e) => setActionOwner(e.target.value)}
-                      />
-                      <Input
-                        className="h-8 text-[13px]"
-                        type="date"
-                        value={actionDue}
-                        onChange={(e) => setActionDue(e.target.value)}
+                {creating || !opportunity ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    Create the opportunity first, then add follow-up actions here.
+                  </p>
+                ) : (
+                  <>
+                    <section>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Status note
+                      </h3>
+                      <Textarea
+                        className="mt-2 min-h-20 text-[13px]"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="What's happening with this deal?"
                       />
                       <Button
                         size="sm"
-                        disabled={!actionText.trim()}
+                        className="mt-2"
                         onClick={async () => {
-                          await createAction({
-                            data: {
-                              opportunityId: opportunity.id,
-                              text: actionText.trim(),
-                              owner: actionOwner,
-                              dueDate: actionDue,
-                            },
-                          });
-                          setActionText("");
-                          setActionOwner("");
-                          setActionDue("");
+                          await saveNotes({ data: { opportunityId: opportunity.id, notes } });
                           await invalidate();
+                          toast.success("Note saved");
                         }}
                       >
-                        Add
+                        Save note
                       </Button>
-                    </div>
-                  </div>
-                </section>
+                    </section>
+
+                    <ActionList opportunityId={opportunity.id} actions={actions} />
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="history">

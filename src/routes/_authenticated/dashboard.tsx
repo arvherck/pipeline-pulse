@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { NeedsAttention } from "@/components/needs-attention";
+import { OpportunityPanel } from "@/components/opportunity-panel";
 import { StatsStrip } from "@/components/stats-strip";
 import { TargetGrid } from "@/components/target-cards";
 import { pipelineQueryOptions } from "@/lib/use-pipeline";
@@ -28,6 +31,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { data } = useSuspenseQuery(pipelineQueryOptions);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = data.opportunities.find((o) => o.id === selectedId) ?? null;
 
   return (
     <AppShell>
@@ -43,6 +48,12 @@ function DashboardPage() {
         <div className="flex items-center gap-3"><h2 className="font-display text-sm font-bold uppercase">Target progress</h2><span className="h-px flex-1 bg-border" /><span className="tech-label">Forecast telemetry</span></div>
         <TargetGrid data={data} />
       </section>
+      <NeedsAttention data={data} onOpen={setSelectedId} />
+      <OpportunityPanel
+        data={data}
+        opportunity={selected}
+        onClose={() => setSelectedId(null)}
+      />
     </AppShell>
   );
 }

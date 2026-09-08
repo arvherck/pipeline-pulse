@@ -15,7 +15,7 @@ import {
   type Opportunity,
   type PipelineData,
 } from "@/lib/pipeline-types";
-import { laneOf, uniqueValues } from "@/lib/use-pipeline";
+import { actionRollups, laneOf, uniqueValues } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
 
 
@@ -28,14 +28,18 @@ export function PipelineTable({ data }: { data: PipelineData }) {
   const [segment, setSegment] = useState("");
   const [laneId, setLaneId] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("close_date");
   const [sortAsc, setSortAsc] = useState(true);
   const [selected, setSelected] = useState<Opportunity | null>(null);
+  const [creating, setCreating] = useState(false);
+  const rollups = useMemo(() => actionRollups(data), [data]);
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const filtered = data.opportunities.filter((o) => {
       if (openOnly && !o.is_open) return false;
+      if (overdueOnly && (rollups.get(o.id)?.overdue ?? 0) === 0) return false;
       if (category && o.category !== category) return false;
       if (region && o.region !== region) return false;
       if (segment && o.segment !== segment) return false;
@@ -55,7 +59,19 @@ export function PipelineTable({ data }: { data: PipelineData }) {
       const compared = String(av).localeCompare(String(bv));
       return sortAsc ? compared : -compared;
     });
-  }, [data, search, category, region, segment, laneId, openOnly, sortKey, sortAsc]);
+  }, [
+    data,
+    search,
+    category,
+    region,
+    segment,
+    laneId,
+    openOnly,
+    overdueOnly,
+    rollups,
+    sortKey,
+    sortAsc,
+  ]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) setSortAsc(!sortAsc);
@@ -66,11 +82,18 @@ export function PipelineTable({ data }: { data: PipelineData }) {
   }
 
   function exportCsv() {
-    const header = [...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)), "Lane"];
+    const header = [
+      ...TABLE_COLUMNS.map((key) => labelFor(data.fieldLabels, key)),
+      "Lane",
+      "Open actions",
+      "Overdue actions",
+    ];
 
     const body = rows.map((row) => [
       ...TABLE_COLUMNS.map((key) => exportCell(row, key)),
       laneOf(data, row.id)?.label ?? "",
+      String(rollups.get(row.id)?.open ?? 0),
+      String(rollups.get(row.id)?.overdue ?? 0),
     ]);
     downloadCsv(`pipeline-${todayStamp()}.csv`, toCsv(header, body));
   }
@@ -115,12 +138,19 @@ export function PipelineTable({ data }: { data: PipelineData }) {
             </option>
           ))}
         </select>
-        <div className="col-span-2 flex items-center gap-2 md:ml-auto">
+        <div className="col-span-2 flex flex-wrap items-center gap-2 md:ml-auto">
           <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
           <Label htmlFor="open-only" className="text-[13px] text-muted-foreground">
             Open only
           </Label>
+          <Switch id="overdue-only" checked={overdueOnly} onCheckedChange={setOverdueOnly} />
+          <Label htmlFor="overdue-only" className="text-[13px] text-muted-foreground">
+            Overdue actions
+          </Label>
           <span className="text-xs tabular-nums text-muted-foreground">{rows.length} rows</span>
+          <Button size="sm" className="h-8 shrink-0" onClick={() => setCreating(true)}>
+            New opportunity
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -158,6 +188,9 @@ export function PipelineTable({ data }: { data: PipelineData }) {
               <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
                 Lane
               </th>
+              <th scope="col" className="px-2.5 py-2 text-left font-display text-[10px] font-bold uppercase text-muted-foreground">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -181,12 +214,29 @@ export function PipelineTable({ data }: { data: PipelineData }) {
                 <td className="px-2.5 py-1.5 text-muted-foreground">
                   {laneOf(data, row.id)?.label ?? "—"}
                 </td>
+                <td className="whitespace-nowrap px-2.5 py-1.5 text-xs">
+                  {(() => {
+                    const rollup = rollups.get(row.id);
+                    if (!rollup || rollup.open === 0)
+                      return <span className="text-muted-foreground">None</span>;
+                    return (
+                      <span>
+                        <span className="tabular-nums">{rollup.open} open</span>
+                        {rollup.overdue > 0 ? (
+                          <span className="ml-1 font-semibold text-destructive">
+                            {rollup.overdue} overdue
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })()}
+                </td>
               </tr>
             ))}
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={TABLE_COLUMNS.length + 1}
+                  colSpan={TABLE_COLUMNS.length + 2}
                   className="px-2.5 py-6 text-center text-muted-foreground"
                 >
                   Nothing matches those filters.
@@ -197,7 +247,15 @@ export function PipelineTable({ data }: { data: PipelineData }) {
         </table>
       </div>
 
-      <OpportunityPanel data={data} opportunity={selected} onClose={() => setSelected(null)} />
+      <OpportunityPanel
+        data={data}
+        opportunity={selected}
+        creating={creating}
+        onClose={() => {
+          setSelected(null);
+          setCreating(false);
+        }}
+      />
     </div>
   );
 }
