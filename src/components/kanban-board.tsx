@@ -63,19 +63,44 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
     await moveTo(opportunity.id, next.id);
   }
 
+  const panel = (
+    <OpportunityPanel
+      data={data}
+      opportunity={selected}
+      creating={creating}
+      onClose={() => {
+        setSelected(null);
+        setCreating(false);
+      }}
+    />
+  );
+
+  const newButton = (
+    <Button size="sm" onClick={() => setCreating(true)}>
+      New opportunity
+    </Button>
+  );
+
   if (data.opportunities.length === 0) {
     return (
-      <p className="rounded-md border bg-card p-6 text-sm text-muted-foreground">
-        No opportunities yet — head to Import data to load a spreadsheet export.
-      </p>
+      <>
+        <div className="rounded-md border bg-card p-6 text-sm text-muted-foreground">
+          <p>No opportunities yet — import a spreadsheet, or add one by hand.</p>
+          <div className="mt-3">{newButton}</div>
+        </div>
+        {panel}
+      </>
     );
   }
 
   return (
     <>
-      <p className="tech-label mb-3 border-l-2 border-primary pl-2">
-        Key controls // Tab selects · Alt + ← / → moves · Enter opens
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="tech-label border-l-2 border-primary pl-2">
+          Key controls // Tab selects · Alt + ← / → moves · Enter opens
+        </p>
+        {newButton}
+      </div>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-3">
           {data.lanes.map((lane) => (
@@ -83,6 +108,7 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
               key={lane.id}
               lane={lane}
               cards={data.opportunities.filter((o) => laneOf(data, o.id)?.id === lane.id)}
+              rollups={rollups}
               onSelect={setSelected}
               onShift={shiftLane}
             />
@@ -92,7 +118,7 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
-      <OpportunityPanel data={data} opportunity={selected} onClose={() => setSelected(null)} />
+      {panel}
     </>
   );
 }
