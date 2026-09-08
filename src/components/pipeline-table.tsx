@@ -59,7 +59,19 @@ export function PipelineTable({ data }: { data: PipelineData }) {
       const compared = String(av).localeCompare(String(bv));
       return sortAsc ? compared : -compared;
     });
-  }, [data, search, category, region, segment, laneId, openOnly, sortKey, sortAsc]);
+  }, [
+    data,
+    search,
+    category,
+    region,
+    segment,
+    laneId,
+    openOnly,
+    overdueOnly,
+    rollups,
+    sortKey,
+    sortAsc,
+  ]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) setSortAsc(!sortAsc);
