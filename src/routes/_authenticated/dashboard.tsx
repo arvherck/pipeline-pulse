@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { NeedsAttention } from "@/components/needs-attention";
+import { OpportunityPanel } from "@/components/opportunity-panel";
 import { StatsStrip } from "@/components/stats-strip";
 import { TargetGrid } from "@/components/target-cards";
 import { pipelineQueryOptions } from "@/lib/use-pipeline";
