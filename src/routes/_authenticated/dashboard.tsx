@@ -48,6 +48,12 @@ function DashboardPage() {
         <div className="flex items-center gap-3"><h2 className="font-display text-sm font-bold uppercase">Target progress</h2><span className="h-px flex-1 bg-border" /><span className="tech-label">Forecast telemetry</span></div>
         <TargetGrid data={data} />
       </section>
+      <NeedsAttention data={data} onOpen={setSelectedId} />
+      <OpportunityPanel
+        data={data}
+        opportunity={selected}
+        onClose={() => setSelectedId(null)}
+      />
     </AppShell>
   );
 }
