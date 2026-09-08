@@ -20,7 +20,11 @@ import {
 
 import {
   EDITABLE_FIELDS,
+  STATUS_NOTE_OPTIONS,
   isPicklistField,
+  probabilityForStage,
+  segmentMismatch,
+  statusOutcomeForStage,
   validatePatch,
   warningsFor,
   type EditableField,
@@ -135,6 +139,7 @@ export function OpportunityPanel({
   const patch = draft ? toPatch(draft) : null;
   const errors = patch ? validatePatch(patch) : {};
   const warnings = patch ? warningsFor(patch) : {};
+  const segmentWarning = patch ? segmentMismatch(patch) : null;
   const dirty =
     draft && savedOpportunity
       ? JSON.stringify(draft) !== JSON.stringify(toDraft(savedOpportunity))
@@ -150,9 +155,22 @@ export function OpportunityPanel({
     : [];
 
   function set(key: string, value: string | boolean) {
-    setDraft((current) =>
-      current ? { ...current, fields: { ...current.fields, [key]: value } } : current,
-    );
+    setDraft((current) => {
+      if (!current) return current;
+      const fields = { ...current.fields, [key]: value };
+      // Stage drives the probability default and, once closed, the outcome note.
+      if (key === "stage") {
+        const implied = probabilityForStage(typeof value === "string" ? value : "");
+        if (implied != null) fields["probability"] = String(implied);
+      }
+      if (key === "stage" || key === "is_open") {
+        const open = Boolean(fields["is_open"]);
+        const stage = typeof fields["stage"] === "string" ? fields["stage"] : "";
+        const outcome = statusOutcomeForStage(stage);
+        if (!open && outcome) fields["status_notes"] = outcome;
+      }
+      return { ...current, fields };
+    });
   }
 
   function setCustom(key: string, value: string) {
@@ -239,6 +257,12 @@ export function OpportunityPanel({
               </TabsList>
 
               <TabsContent value="details" className="space-y-4">
+                {segmentWarning ? (
+                  <p className="rounded-sm border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+                    {segmentWarning} You can still save.
+                  </p>
+                ) : null}
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <FieldLabel text={label("id")} />
@@ -255,6 +279,8 @@ export function OpportunityPanel({
                       label={label(field.key)}
                       data={data}
                       value={draft.fields[field.key] ?? ""}
+                      isOpen={Boolean(draft.fields["is_open"])}
+                      stage={typeof draft.fields["stage"] === "string" ? draft.fields["stage"] : ""}
                       error={errors[field.key]}
                       warning={warnings[field.key]}
                       onChange={(value) => set(field.key, value)}
@@ -487,6 +513,8 @@ function FieldEditor({
   label,
   data,
   value,
+  isOpen,
+  stage,
   error,
   warning,
   onChange,
@@ -495,6 +523,8 @@ function FieldEditor({
   label: string;
   data: PipelineData;
   value: string | boolean;
+  isOpen: boolean;
+  stage: string;
   error?: string | undefined;
   warning?: string | undefined;
   onChange: (value: string | boolean) => void;
@@ -511,7 +541,30 @@ function FieldEditor({
     <div className={cn("min-w-0", field.kind === "textarea" && "sm:col-span-2")}>
       <FieldLabel text={`${label}${field.required ? " *" : ""}`} />
 
-      {field.kind === "boolean" ? (
+      {field.kind === "status" ? (
+        !isOpen ? (
+          <p className="h-8 rounded-sm border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
+            {statusOutcomeForStage(stage) ?? (text === "" ? "—" : text)}
+          </p>
+        ) : (
+          <select
+            className="h-8 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
+            value={text}
+            aria-label={label}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <option value="">—</option>
+            {STATUS_NOTE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+            {text !== "" && !(STATUS_NOTE_OPTIONS as readonly string[]).includes(text) ? (
+              <option value={text}>{text} (not in list)</option>
+            ) : null}
+          </select>
+        )
+      ) : field.kind === "boolean" ? (
         <div className="flex h-8 items-center gap-2">
           <Switch checked={Boolean(value)} onCheckedChange={(checked) => onChange(checked)} />
           <span className="text-[13px]">{value ? "Open" : "Closed"}</span>
@@ -563,6 +616,12 @@ function FieldEditor({
         <Hint text={formatMoney(Number(text))} />
       ) : null}
       {field.kind === "percent" && !error && text.trim() !== "" ? <Hint text="0–100" /> : null}
+      {field.key === "probability" && !error && String(probabilityForStage(stage)) === text ? (
+        <Hint text="Suggested by the stage — type over it to change." />
+      ) : null}
+      {field.kind === "status" && !isOpen ? (
+        <Hint text="Taken from the stage while the deal is closed." />
+      ) : null}
       {options.length > 0 && missingOption && !error ? (
         <Hint text="This value isn't in the allowed list — pick one or add it in Settings." />
       ) : null}

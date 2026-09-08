@@ -2,7 +2,16 @@ import { z } from "zod";
 
 import type { Opportunity } from "./pipeline-types";
 
-export type EditableKind = "text" | "textarea" | "number" | "money" | "percent" | "date" | "select" | "boolean";
+export type EditableKind =
+  | "text"
+  | "textarea"
+  | "number"
+  | "money"
+  | "percent"
+  | "date"
+  | "select"
+  | "boolean"
+  | "status";
 
 export type EditableField = {
   key: keyof Opportunity & string;
@@ -31,7 +40,7 @@ export const EDITABLE_FIELDS: EditableField[] = [
   { key: "age_days", kind: "number" },
   { key: "stage_duration_days", kind: "number" },
   { key: "is_open", kind: "boolean" },
-  { key: "status_notes", kind: "textarea" },
+  { key: "status_notes", kind: "status" },
   { key: "comment", kind: "textarea" },
 ];
 
@@ -134,4 +143,56 @@ export function warningsFor(patch: {
 
 export function isPicklistField(key: string): boolean {
   return key === "stage" || key === "segment" || key === "category" || key === "region";
+}
+
+/* ---------- Data-quality helpers ---------- */
+
+export const SEGMENT_BANDS = ["<$2m", "$2m-$5m", ">$5m"] as const;
+
+/** The segment a deal value implies; boundary amounts count as the middle band. */
+export function segmentForValue(dealValue: number | null | undefined): string | null {
+  if (dealValue == null || Number.isNaN(dealValue)) return null;
+  if (dealValue < 2_000_000) return "<$2m";
+  if (dealValue <= 5_000_000) return "$2m-$5m";
+  return ">$5m";
+}
+
+/** Non-blocking mismatch between the chosen segment and the deal value. */
+export function segmentMismatch(patch: {
+  segment?: string | null | undefined;
+  deal_value?: number | null | undefined;
+}): string | null {
+  const segment = patch.segment?.trim();
+  if (!segment) return null;
+  if (!(SEGMENT_BANDS as readonly string[]).includes(segment)) return null;
+  const implied = segmentForValue(patch.deal_value);
+  if (!implied || implied === segment) return null;
+  return `Segment says ${segment} but the deal value suggests ${implied}.`;
+}
+
+export const PROBABILITY_BY_STAGE: Record<string, number> = {
+  "Stage 0A": 10,
+  "Stage 1": 30,
+  "Stage 2A": 50,
+  "Stage 2B": 70,
+  "Stage 3A": 90,
+  "Stage 3B": 90,
+};
+
+/** Default probability implied by a stage, or null when the stage is unknown. */
+export function probabilityForStage(stage: string | null | undefined): number | null {
+  const value = stage?.trim();
+  if (!value) return null;
+  if (value === "Closed - Won") return 100;
+  if (value.startsWith("Closed -")) return 0;
+  return PROBABILITY_BY_STAGE[value] ?? null;
+}
+
+export const STATUS_NOTE_OPTIONS = ["Qualified", "Unqualified"] as const;
+
+/** For a closed deal, the outcome the stage already states. */
+export function statusOutcomeForStage(stage: string | null | undefined): string | null {
+  const value = stage?.trim();
+  if (!value || !value.startsWith("Closed -")) return null;
+  return value.replace(/^Closed\s*-\s*/, "").trim() || null;
 }
