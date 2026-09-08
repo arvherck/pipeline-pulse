@@ -160,7 +160,13 @@ function LaneColumn({
       </div>
       <div className="flex flex-col gap-2 p-2">
         {cards.map((card) => (
-          <Card key={card.id} opportunity={card} onSelect={onSelect} onShift={onShift} />
+          <Card
+            key={card.id}
+            opportunity={card}
+            rollup={rollups.get(card.id) ?? null}
+            onSelect={onSelect}
+            onShift={onShift}
+          />
         ))}
       </div>
     </section>
