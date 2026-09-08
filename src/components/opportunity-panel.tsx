@@ -411,139 +411,110 @@ export function OpportunityPanel({
                   </div>
                 </section>
 
+                {creating ? null : (
+                  <section className="space-y-2 border-t pt-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Danger zone
+                    </h3>
+                    {confirmDelete ? (
+                      <div className="rounded-sm border border-destructive/50 bg-destructive/10 p-3">
+                        <p className="text-[13px]">
+                          Delete <strong>{savedOpportunity?.name ?? opportunity?.id}</strong> for
+                          good? Its actions and change history go too. This can't be undone.
+                        </p>
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={saving}
+                            onClick={destroy}
+                          >
+                            Yes, delete it
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmDelete(false)}
+                            disabled={saving}
+                          >
+                            Keep it
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                        onClick={() => setConfirmDelete(true)}
+                      >
+                        Delete opportunity
+                      </Button>
+                    )}
+                  </section>
+                )}
+
                 <div className="sticky bottom-0 -mx-4 flex items-center gap-2 border-t-2 border-primary/30 bg-background/95 px-4 py-3 backdrop-blur-sm">
                   <Button size="sm" disabled={hasErrors || !dirty || saving} onClick={save}>
-                    {saving ? "Saving…" : "Save"}
+                    {saving ? "Saving…" : creating ? "Create opportunity" : "Save"}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={!dirty || saving}
-                    onClick={() => savedOpportunity && setDraft(toDraft(savedOpportunity))}
+                    disabled={saving}
+                    onClick={() =>
+                      creating
+                        ? onClose()
+                        : savedOpportunity && setDraft(toDraft(savedOpportunity))
+                    }
                   >
-                    Discard
+                    {creating ? "Cancel" : "Discard"}
                   </Button>
                   <span className="text-xs text-muted-foreground">
                     {hasErrors
                       ? "Fix the highlighted fields to save"
-                      : dirty
-                        ? "Unsaved changes"
-                        : "All changes saved"}
+                      : creating
+                        ? "Not saved yet"
+                        : dirty
+                          ? "Unsaved changes"
+                          : "All changes saved"}
                   </span>
                 </div>
               </TabsContent>
 
               <TabsContent value="actions" className="space-y-6">
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Status note
-                  </h3>
-                  <Textarea
-                    className="mt-2 min-h-20 text-[13px]"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="What's happening with this deal?"
-                  />
-                  <Button
-                    size="sm"
-                    className="mt-2"
-                    onClick={async () => {
-                      await saveNotes({ data: { opportunityId: opportunity.id, notes } });
-                      await invalidate();
-                      toast.success("Note saved");
-                    }}
-                  >
-                    Save note
-                  </Button>
-                </section>
-
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Follow-up actions
-                  </h3>
-                  <ul className="mt-2 space-y-1.5">
-                    {actions.length === 0 ? (
-                      <li className="text-[13px] text-muted-foreground">No actions yet.</li>
-                    ) : null}
-                    {actions.map((action) => (
-                      <li key={action.id} className="flex items-start gap-2 text-[13px]">
-                        <Checkbox
-                          checked={action.done}
-                          className="mt-0.5"
-                          onCheckedChange={async (checked) => {
-                            await flipAction({ data: { id: action.id, done: Boolean(checked) } });
-                            await invalidate();
-                          }}
-                        />
-                        <span className={action.done ? "line-through text-muted-foreground" : ""}>
-                          {action.text}
-                          {action.owner ? (
-                            <span className="text-muted-foreground"> · {action.owner}</span>
-                          ) : null}
-                          {action.due_date ? (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · due {formatDate(action.due_date)}
-                            </span>
-                          ) : null}
-                        </span>
-                        <button
-                          type="button"
-                          className="ml-auto text-xs text-muted-foreground hover:text-destructive"
-                          onClick={async () => {
-                            await removeAction({ data: { id: action.id } });
-                            await invalidate();
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-3 space-y-2">
-                    <Input
-                      className="h-8 text-[13px]"
-                      placeholder="New action"
-                      value={actionText}
-                      onChange={(e) => setActionText(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <Input
-                        className="h-8 text-[13px]"
-                        placeholder="Owner"
-                        value={actionOwner}
-                        onChange={(e) => setActionOwner(e.target.value)}
-                      />
-                      <Input
-                        className="h-8 text-[13px]"
-                        type="date"
-                        value={actionDue}
-                        onChange={(e) => setActionDue(e.target.value)}
+                {creating || !opportunity ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    Create the opportunity first, then add follow-up actions here.
+                  </p>
+                ) : (
+                  <>
+                    <section>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Status note
+                      </h3>
+                      <Textarea
+                        className="mt-2 min-h-20 text-[13px]"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="What's happening with this deal?"
                       />
                       <Button
                         size="sm"
-                        disabled={!actionText.trim()}
+                        className="mt-2"
                         onClick={async () => {
-                          await createAction({
-                            data: {
-                              opportunityId: opportunity.id,
-                              text: actionText.trim(),
-                              owner: actionOwner,
-                              dueDate: actionDue,
-                            },
-                          });
-                          setActionText("");
-                          setActionOwner("");
-                          setActionDue("");
+                          await saveNotes({ data: { opportunityId: opportunity.id, notes } });
                           await invalidate();
+                          toast.success("Note saved");
                         }}
                       >
-                        Add
+                        Save note
                       </Button>
-                    </div>
-                  </div>
-                </section>
+                    </section>
+
+                    <ActionList opportunityId={opportunity.id} actions={actions} />
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="history">
