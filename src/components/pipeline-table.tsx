@@ -247,7 +247,15 @@ export function PipelineTable({ data }: { data: PipelineData }) {
         </table>
       </div>
 
-      <OpportunityPanel data={data} opportunity={selected} onClose={() => setSelected(null)} />
+      <OpportunityPanel
+        data={data}
+        opportunity={selected}
+        creating={creating}
+        onClose={() => {
+          setSelected(null);
+          setCreating(false);
+        }}
+      />
     </div>
   );
 }
