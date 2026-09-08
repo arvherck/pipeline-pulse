@@ -52,13 +52,13 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
     await moveTo(opportunityId, laneId);
   }
 
-  /** Alt + Left/Right shifts a focused card to the neighbouring stage. */
+  /** Alt + Left/Right shifts a focused card to the neighbouring lane. */
   async function shiftLane(opportunity: Opportunity, direction: -1 | 1) {
     const current = laneOf(data, opportunity.id);
     const index = data.lanes.findIndex((l) => l.id === current?.id);
     const next = data.lanes[(index < 0 ? 0 : index) + direction];
     if (!next) {
-      setAnnouncement(`${opportunity.name} is already in the ${direction === 1 ? "last" : "first"} stage`);
+      setAnnouncement(`${opportunity.name} is already in the ${direction === 1 ? "last" : "first"} lane`);
       return;
     }
     setAnnouncement(`${opportunity.name} moved to ${next.label}`);
