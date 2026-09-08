@@ -31,6 +31,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { data } = useSuspenseQuery(pipelineQueryOptions);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = data.opportunities.find((o) => o.id === selectedId) ?? null;
 
   return (
     <AppShell>
