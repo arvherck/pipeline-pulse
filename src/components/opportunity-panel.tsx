@@ -167,8 +167,9 @@ export function OpportunityPanel({
   const errors = patch ? validatePatch(patch) : {};
   const warnings = patch ? warningsFor(patch) : {};
   const segmentWarning = patch ? segmentMismatch(patch) : null;
-  const dirty =
-    draft && savedOpportunity
+  const dirty = creating
+    ? true
+    : draft && savedOpportunity
       ? JSON.stringify(draft) !== JSON.stringify(toDraft(savedOpportunity))
       : false;
   const hasErrors = Object.keys(errors).length > 0;
