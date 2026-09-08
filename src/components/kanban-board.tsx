@@ -227,6 +227,25 @@ function Card({
         <span className="truncate">{opportunity.stage ?? "—"}</span>
         <span className="truncate">{opportunity.owner ?? ""}</span>
       </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+        {rollup && rollup.open > 0 ? (
+          <span className="border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
+            {rollup.open} open action{rollup.open === 1 ? "" : "s"}
+          </span>
+        ) : (
+          <span className="border border-border px-1.5 py-0.5 uppercase tracking-wide text-muted-foreground">
+            No actions
+          </span>
+        )}
+        {rollup && rollup.overdue > 0 ? (
+          <span className="border border-destructive/50 bg-destructive/10 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-destructive">
+            {rollup.overdue} overdue
+          </span>
+        ) : null}
+        {rollup?.nextDue && rollup.overdue === 0 ? (
+          <span className="text-muted-foreground">next {formatDate(rollup.nextDue)}</span>
+        ) : null}
+      </div>
     </article>
   );
 }
