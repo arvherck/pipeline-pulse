@@ -108,6 +108,7 @@ export type Database = {
           is_default: boolean
           label: string
           position: number
+          stage_value: string | null
         }
         Insert: {
           color?: string
@@ -116,6 +117,7 @@ export type Database = {
           is_default?: boolean
           label: string
           position?: number
+          stage_value?: string | null
         }
         Update: {
           color?: string
@@ -124,6 +126,7 @@ export type Database = {
           is_default?: boolean
           label?: string
           position?: number
+          stage_value?: string | null
         }
         Relationships: []
       }

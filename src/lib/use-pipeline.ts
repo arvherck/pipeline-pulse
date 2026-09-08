@@ -13,12 +13,16 @@ export function useInvalidatePipeline() {
   return () => queryClient.invalidateQueries({ queryKey: ["pipeline"] });
 }
 
+/** The board column a deal sits in — driven by its stage. */
 export function laneOf(data: PipelineData, opportunityId: string): Lane | undefined {
-  const status = data.statuses.find((s) => s.opportunity_id === opportunityId);
-  const laneId = status?.lane_id;
-  if (laneId) return data.lanes.find((l) => l.id === laneId);
+  const stage = data.opportunities.find((o) => o.id === opportunityId)?.stage?.trim();
+  if (stage) {
+    const match = data.lanes.find((l) => l.stage_value === stage);
+    if (match) return match;
+  }
   return data.lanes.find((l) => l.is_default) ?? data.lanes[0];
 }
+
 
 export function sum(values: Array<number | null>): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);

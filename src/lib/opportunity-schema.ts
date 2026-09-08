@@ -171,6 +171,10 @@ export function segmentMismatch(patch: {
 }
 
 export const PROBABILITY_BY_STAGE: Record<string, number> = {
+  Lead: 10,
+  Qualify: 30,
+  Propose: 50,
+  Negotiate: 70,
   "Stage 0A": 10,
   "Stage 1": 30,
   "Stage 2A": 50,
@@ -187,6 +191,75 @@ export function probabilityForStage(stage: string | null | undefined): number | 
   if (value.startsWith("Closed -")) return 0;
   return PROBABILITY_BY_STAGE[value] ?? null;
 }
+
+/* ---------- Calculated fields ---------- */
+
+/** Fields the app works out; they are shown read-only. */
+export const COMPUTED_FIELDS = new Set<string>([
+  "weighted_value",
+  "is_open",
+  "age_days",
+  "stage_duration_days",
+]);
+
+export function computeWeightedValue(
+  dealValue: number | null | undefined,
+  probability: number | null | undefined,
+): number | null {
+  if (dealValue == null || probability == null) return null;
+  if (Number.isNaN(dealValue) || Number.isNaN(probability)) return null;
+  return Math.round(dealValue * probability) / 100;
+}
+
+/** A deal is closed as soon as its stage says so. */
+export function isOpenForStage(stage: string | null | undefined): boolean {
+  return !(stage ?? "").trim().startsWith("Closed -");
+}
+
+/** Whole days between a date and today, never negative. */
+export function daysSince(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const then = new Date(value);
+  if (Number.isNaN(then.getTime())) return null;
+  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000);
+  return days < 0 ? 0 : days;
+}
+
+export function todayDateString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+type DerivableFields = {
+  deal_value?: number | null | undefined;
+  probability?: number | null | undefined;
+  stage?: string | null | undefined;
+  last_stage_change?: string | null | undefined;
+  weighted_value?: number | null | undefined;
+  is_open?: boolean | undefined;
+  age_days?: number | null | undefined;
+  stage_duration_days?: number | null | undefined;
+};
+
+/** Overwrite the calculated fields on a patch or an imported row. */
+export function withCalculatedFields<T extends DerivableFields>(
+  values: T,
+  context: { createdAt?: string | null } = {},
+): T & {
+  weighted_value: number | null;
+  is_open: boolean;
+  age_days: number | null;
+  stage_duration_days: number | null;
+} {
+  const created = context.createdAt ?? null;
+  return {
+    ...values,
+    weighted_value: computeWeightedValue(values.deal_value ?? null, values.probability ?? null),
+    is_open: isOpenForStage(values.stage ?? null),
+    age_days: daysSince(created),
+    stage_duration_days: daysSince(values.last_stage_change ?? created),
+  };
+}
+
 
 export const STATUS_NOTE_OPTIONS = ["Qualified", "Unqualified"] as const;
 

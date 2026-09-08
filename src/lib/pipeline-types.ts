@@ -32,7 +32,10 @@ export type Lane = {
   position: number;
   color: string;
   is_default: boolean;
+  /** The opportunity stage this board column represents. */
+  stage_value: string | null;
 };
+
 
 export type OpportunityStatus = {
   opportunity_id: string;
