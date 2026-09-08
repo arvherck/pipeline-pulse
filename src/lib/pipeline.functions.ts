@@ -313,6 +313,21 @@ export const createOpportunity = createServerFn({ method: "POST" })
       .insert({ id: data.id, ...row } as never);
     if (error) throw new Error(error.message);
 
+    // Place the new deal in the default lane on the board.
+    const { data: defaultLane } = await supabase
+      .from("lanes")
+      .select("id")
+      .eq("is_default", true)
+      .maybeSingle();
+    if (defaultLane?.id) {
+      const { error: placeError } = await supabase
+        .from("opportunity_status")
+        .upsert(
+          { opportunity_id: data.id, lane_id: defaultLane.id },
+          { onConflict: "opportunity_id" },
+        );
+      if (placeError) throw new Error(placeError.message);
+    }
 
     await recordSnapshots(supabase);
     return { ok: true, id: data.id };
