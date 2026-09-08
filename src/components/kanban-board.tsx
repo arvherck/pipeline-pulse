@@ -126,11 +126,13 @@ export function KanbanBoard({ data }: { data: PipelineData }) {
 function LaneColumn({
   lane,
   cards,
+  rollups,
   onSelect,
   onShift,
 }: {
   lane: Lane;
   cards: Opportunity[];
+  rollups: Map<string, ActionRollup>;
   onSelect: (opportunity: Opportunity) => void;
   onShift: (opportunity: Opportunity, direction: -1 | 1) => void;
 }) {
