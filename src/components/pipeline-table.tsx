@@ -15,7 +15,7 @@ import {
   type Opportunity,
   type PipelineData,
 } from "@/lib/pipeline-types";
-import { laneOf, uniqueValues } from "@/lib/use-pipeline";
+import { actionRollups, laneOf, uniqueValues } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
 
 
