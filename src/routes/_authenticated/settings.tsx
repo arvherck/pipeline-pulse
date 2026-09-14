@@ -375,10 +375,10 @@ function Targets({ data }: { data: PipelineData }) {
       hint="A goal per period, measured on deal value or weighted value of open deals."
     >
       <ul className="space-y-1.5">
-        {data.targets.length === 0 ? (
+        {periodTargets.length === 0 ? (
           <li className="text-[13px] text-muted-foreground">No targets yet.</li>
         ) : null}
-        {data.targets.map((target) => (
+        {periodTargets.map((target) => (
           <li key={target.id} className="flex items-center gap-2 text-[13px]">
             <div className="min-w-0 flex-1">
               <div className="truncate font-medium">{targetTitle(target)}</div>

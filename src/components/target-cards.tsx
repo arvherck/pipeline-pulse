@@ -58,21 +58,23 @@ export function TargetCard({
 }
 
 export function TargetGrid({ data }: { data: PipelineData }) {
-  if (data.targets.length === 0) {
+  // Yearly sales/revenue targets have their own chart, so keep them out here.
+  const targets = data.targets.filter((target) => target.kind !== "sales" && target.kind !== "revenue");
+  if (targets.length === 0) {
     return (
       <div className="flex min-h-28 items-center justify-center border border-dashed border-primary/40 bg-card/60 p-6 text-center">
         <div><div className="tech-label text-primary">Target channel // empty</div><p className="mt-1 text-[13px] text-muted-foreground">No targets yet. Add one in Settings to track progress here.</p></div>
       </div>
     );
   }
-  const compact = data.targets.length > 1;
+  const compact = targets.length > 1;
   return (
     <div
       className={
         compact ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "grid gap-3 lg:max-w-2xl"
       }
     >
-      {data.targets.map((target) => (
+      {targets.map((target) => (
         <TargetCard key={target.id} data={data} target={target} compact={compact} />
       ))}
     </div>
