@@ -82,6 +82,8 @@ export const getPipeline = createServerFn({ method: "GET" })
       changes,
       snapshots,
       importRuns,
+      revenuePlans,
+      appSettings,
     ] = await Promise.all([
       supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
       supabase.from("lanes").select("*").order("position", { ascending: true }),
@@ -101,6 +103,11 @@ export const getPipeline = createServerFn({ method: "GET" })
         .select("id, imported_at, row_count")
         .order("imported_at", { ascending: false })
         .limit(10),
+      supabase
+        .from("revenue_plan")
+        .select("id, opportunity_id, period_month, amount")
+        .order("period_month", { ascending: true }),
+      supabase.from("app_settings").select("fiscal_year_start_month").maybeSingle(),
     ]);
 
     const firstError =
@@ -113,7 +120,9 @@ export const getPipeline = createServerFn({ method: "GET" })
       targets.error ??
       changes.error ??
       snapshots.error ??
-      importRuns.error;
+      importRuns.error ??
+      revenuePlans.error ??
+      appSettings.error;
     if (firstError) throw new Error(firstError.message);
 
     return {
@@ -127,6 +136,10 @@ export const getPipeline = createServerFn({ method: "GET" })
       changes: (changes.data ?? []) as PipelineData["changes"],
       snapshots: (snapshots.data ?? []) as PipelineData["snapshots"],
       importRuns: (importRuns.data ?? []) as PipelineData["importRuns"],
+      revenuePlans: (revenuePlans.data ?? []) as PipelineData["revenuePlans"],
+      appSettings: {
+        fiscal_year_start_month: appSettings.data?.fiscal_year_start_month ?? 9,
+      },
     };
 
   });
