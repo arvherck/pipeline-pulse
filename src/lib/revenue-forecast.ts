@@ -21,9 +21,7 @@ export function revenueByMonth(
   if (saved.length > 0) {
     return new Map(saved.map((plan) => [monthKey(plan.period_month), Number(plan.amount)]));
   }
-  return new Map(
-    defaultRevenueMonths(row).map((month) => [month, forecastValue(row) / defaultRevenueMonths(row).length]),
-  );
+  return new Map(defaultRevenuePlan(row).map((entry) => [entry.month, entry.amount]));
 }
 
 /** The months a deal is delivered over, with no hand-entered plan applied. */
