@@ -11,10 +11,19 @@ import { Input } from "@/components/ui/input";
 import {
   deletePicklistValue,
   deleteTarget,
+  saveAppSettings,
   saveFieldLabel,
   savePicklistValue,
   saveTarget,
 } from "@/lib/pipeline.functions";
+import {
+  DEFAULT_FISCAL_START_MONTH,
+  MONTH_NAMES,
+  fiscalRangeText,
+  fiscalYearLabel,
+  fiscalYearOf,
+} from "@/lib/fiscal";
+import { fiscalYearChoices, yearlyTarget } from "@/lib/revenue-forecast";
 
 import {
   IMPORT_FIELDS,
@@ -62,6 +71,7 @@ function SettingsPage() {
         <FieldLabels data={data} />
         <Lanes data={data} />
         <Picklists data={data} />
+        <FiscalYear data={data} />
         <Targets data={data} />
       </div>
     </AppShell>
