@@ -641,6 +641,8 @@ export const saveTarget = createServerFn({ method: "POST" })
         periodEnd: z.string().nullable().optional(),
         scopeField: z.enum(["category", "region", "segment"]).nullable().optional(),
         scopeValue: z.string().nullable().optional(),
+        kind: z.enum(["legacy", "sales", "revenue"]).default("legacy"),
+        fiscalYear: z.number().int().nullable().optional(),
       })
       .parse(input),
   )
@@ -655,6 +657,8 @@ export const saveTarget = createServerFn({ method: "POST" })
       period_end: data.periodEnd || null,
       scope_field: scopeField,
       scope_value: scopeField ? (data.scopeValue ?? null) : null,
+      kind: data.kind,
+      fiscal_year: data.fiscalYear ?? null,
     };
     const { error } = data.id
       ? await context.supabase.from("targets").update(payload).eq("id", data.id)
