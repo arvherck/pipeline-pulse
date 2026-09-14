@@ -679,3 +679,67 @@ export const deleteTarget = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** The month the fiscal year starts on, used by the forecast chart. */
+export const saveAppSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ fiscalYearStartMonth: z.number().int().min(1).max(12) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("app_settings")
+      .upsert(
+        { id: true, fiscal_year_start_month: data.fiscalYearStartMonth },
+        { onConflict: "id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Replace a deal's month-by-month revenue plan with the amounts given. */
+export const saveRevenuePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        opportunityId: z.string().min(1),
+        months: z
+          .array(z.object({ month: z.string().min(7), amount: z.number() }))
+          .max(240),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error: clearError } = await supabase
+      .from("revenue_plan")
+      .delete()
+      .eq("opportunity_id", data.opportunityId);
+    if (clearError) throw new Error(clearError.message);
+
+    if (data.months.length > 0) {
+      const { error } = await supabase.from("revenue_plan").insert(
+        data.months.map((entry) => ({
+          opportunity_id: data.opportunityId,
+          period_month: `${entry.month.slice(0, 7)}-01`,
+          amount: entry.amount,
+        })),
+      );
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+/** Drop the hand-entered plan so the even spread applies again. */
+export const resetRevenuePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("revenue_plan")
+      .delete()
+      .eq("opportunity_id", data.opportunityId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
