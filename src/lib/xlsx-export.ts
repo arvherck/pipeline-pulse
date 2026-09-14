@@ -106,5 +106,10 @@ export function exportWorkbook(
     utils.json_to_sheet(actionRows.length > 0 ? actionRows : [{ Note: "No actions" }]),
     "Actions",
   );
+  utils.book_append_sheet(
+    book,
+    utils.json_to_sheet(revenueRows.length > 0 ? revenueRows : [{ Note: "No revenue plan" }]),
+    "Revenue plan",
+  );
   writeFile(book, filename);
 }
