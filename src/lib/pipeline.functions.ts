@@ -82,6 +82,8 @@ export const getPipeline = createServerFn({ method: "GET" })
       changes,
       snapshots,
       importRuns,
+      revenuePlans,
+      appSettings,
     ] = await Promise.all([
       supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
       supabase.from("lanes").select("*").order("position", { ascending: true }),
@@ -101,6 +103,11 @@ export const getPipeline = createServerFn({ method: "GET" })
         .select("id, imported_at, row_count")
         .order("imported_at", { ascending: false })
         .limit(10),
+      supabase
+        .from("revenue_plan")
+        .select("id, opportunity_id, period_month, amount")
+        .order("period_month", { ascending: true }),
+      supabase.from("app_settings").select("fiscal_year_start_month").maybeSingle(),
     ]);
 
     const firstError =
@@ -113,7 +120,9 @@ export const getPipeline = createServerFn({ method: "GET" })
       targets.error ??
       changes.error ??
       snapshots.error ??
-      importRuns.error;
+      importRuns.error ??
+      revenuePlans.error ??
+      appSettings.error;
     if (firstError) throw new Error(firstError.message);
 
     return {
@@ -127,6 +136,10 @@ export const getPipeline = createServerFn({ method: "GET" })
       changes: (changes.data ?? []) as PipelineData["changes"],
       snapshots: (snapshots.data ?? []) as PipelineData["snapshots"],
       importRuns: (importRuns.data ?? []) as PipelineData["importRuns"],
+      revenuePlans: (revenuePlans.data ?? []) as PipelineData["revenuePlans"],
+      appSettings: {
+        fiscal_year_start_month: appSettings.data?.fiscal_year_start_month ?? 9,
+      },
     };
 
   });
@@ -628,6 +641,8 @@ export const saveTarget = createServerFn({ method: "POST" })
         periodEnd: z.string().nullable().optional(),
         scopeField: z.enum(["category", "region", "segment"]).nullable().optional(),
         scopeValue: z.string().nullable().optional(),
+        kind: z.enum(["legacy", "sales", "revenue"]).default("legacy"),
+        fiscalYear: z.number().int().nullable().optional(),
       })
       .parse(input),
   )
@@ -642,6 +657,8 @@ export const saveTarget = createServerFn({ method: "POST" })
       period_end: data.periodEnd || null,
       scope_field: scopeField,
       scope_value: scopeField ? (data.scopeValue ?? null) : null,
+      kind: data.kind,
+      fiscal_year: data.fiscalYear ?? null,
     };
     const { error } = data.id
       ? await context.supabase.from("targets").update(payload).eq("id", data.id)
@@ -659,6 +676,70 @@ export const deleteTarget = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("targets").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** The month the fiscal year starts on, used by the forecast chart. */
+export const saveAppSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ fiscalYearStartMonth: z.number().int().min(1).max(12) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("app_settings")
+      .upsert(
+        { id: true, fiscal_year_start_month: data.fiscalYearStartMonth },
+        { onConflict: "id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Replace a deal's month-by-month revenue plan with the amounts given. */
+export const saveRevenuePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        opportunityId: z.string().min(1),
+        months: z
+          .array(z.object({ month: z.string().min(7), amount: z.number() }))
+          .max(240),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error: clearError } = await supabase
+      .from("revenue_plan")
+      .delete()
+      .eq("opportunity_id", data.opportunityId);
+    if (clearError) throw new Error(clearError.message);
+
+    if (data.months.length > 0) {
+      const { error } = await supabase.from("revenue_plan").insert(
+        data.months.map((entry) => ({
+          opportunity_id: data.opportunityId,
+          period_month: `${entry.month.slice(0, 7)}-01`,
+          amount: entry.amount,
+        })),
+      );
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+/** Drop the hand-entered plan so the even spread applies again. */
+export const resetRevenuePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("revenue_plan")
+      .delete()
+      .eq("opportunity_id", data.opportunityId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

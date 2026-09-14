@@ -82,6 +82,20 @@ export type Target = {
   period_end: string | null;
   scope_field: string | null;
   scope_value: string | null;
+  /** "sales" and "revenue" are yearly targets; "legacy" is a period target. */
+  kind: string;
+  fiscal_year: number | null;
+};
+
+export type RevenuePlan = {
+  id: string;
+  opportunity_id: string;
+  period_month: string;
+  amount: number;
+};
+
+export type AppSettings = {
+  fiscal_year_start_month: number;
 };
 
 export type Snapshot = {
@@ -117,6 +131,8 @@ export type PipelineData = {
   fieldLabels: FieldLabel[];
   picklists: Picklist[];
   targets: Target[];
+  revenuePlans: RevenuePlan[];
+  appSettings: AppSettings;
   snapshots: Snapshot[];
   importRuns: ImportRun[];
   changes: FieldChange[];

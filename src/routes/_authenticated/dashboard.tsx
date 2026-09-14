@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { FiscalForecastChart } from "@/components/fiscal-forecast-chart";
 import { NeedsAttention } from "@/components/needs-attention";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { StatsStrip } from "@/components/stats-strip";
@@ -44,6 +45,7 @@ function DashboardPage() {
         <div className="hidden text-right md:block"><div className="tech-label">Workspace</div><div className="font-display text-sm font-semibold">Sales operations</div></div>
       </header>
       <StatsStrip data={data} />
+      <FiscalForecastChart data={data} />
       <section className="space-y-2">
         <div className="flex items-center gap-3"><h2 className="font-display text-sm font-bold uppercase">Target progress</h2><span className="h-px flex-1 bg-border" /><span className="tech-label">Forecast telemetry</span></div>
         <TargetGrid data={data} />

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RevenuePlanEditor } from "@/components/revenue-plan-editor";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createOpportunity,
@@ -326,6 +327,9 @@ export function OpportunityPanel({
                 <TabsTrigger value="actions" className="text-xs">
                   Actions
                 </TabsTrigger>
+                <TabsTrigger value="revenue" className="text-xs">
+                  Revenue
+                </TabsTrigger>
                 <TabsTrigger value="history" className="text-xs">
                   History
                 </TabsTrigger>
@@ -531,6 +535,16 @@ export function OpportunityPanel({
 
                     <ActionList opportunityId={opportunity.id} actions={actions} />
                   </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="revenue">
+                {creating || !opportunity ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    Create the opportunity first, then plan its revenue by month.
+                  </p>
+                ) : (
+                  <RevenuePlanEditor data={data} opportunity={opportunity} />
                 )}
               </TabsContent>
 
