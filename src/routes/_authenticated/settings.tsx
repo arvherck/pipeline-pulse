@@ -537,3 +537,116 @@ function Targets({ data }: { data: PipelineData }) {
   );
 }
 
+
+/** Fiscal year start month plus the yearly sales and revenue targets. */
+function FiscalYear({ data }: { data: PipelineData }) {
+  const saveSettings = useServerFn(saveAppSettings);
+  const save = useServerFn(saveTarget);
+  const invalidate = useInvalidatePipeline();
+  const startMonth = data.appSettings.fiscal_year_start_month || DEFAULT_FISCAL_START_MONTH;
+  const [year, setYear] = useState(() =>
+    fiscalYearOf(new Date().toISOString().slice(0, 10), startMonth),
+  );
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+
+  const years = [...new Set([...fiscalYearChoices(data, startMonth), year])].sort((a, b) => a - b);
+
+  async function saveYearly(kind: "sales" | "revenue") {
+    const key = `${kind}-${year}`;
+    const raw = amounts[key];
+    if (raw === undefined) return;
+    const amount = Number(raw.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast.error("Enter an amount of zero or more");
+      return;
+    }
+    const existing = yearlyTarget(data.targets, kind, year);
+    await save({
+      data: {
+        ...(existing ? { id: existing.id } : {}),
+        period: `${fiscalYearLabel(year)} ${kind}`,
+        targetAmount: amount,
+        metric: "deal_value",
+        label: `${fiscalYearLabel(year)} ${kind} target`,
+        kind,
+        fiscalYear: year,
+      },
+    });
+    setAmounts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    await invalidate();
+    toast.success("Yearly target saved");
+  }
+
+  return (
+    <Panel
+      title="Fiscal year & yearly targets"
+      hint="Sets the year used by the dashboard forecast, plus its sales and revenue goals."
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">Year starts in</span>
+        <select
+          className="h-8 rounded-md border border-input bg-background px-2 text-[13px]"
+          value={startMonth}
+          aria-label="Fiscal year start month"
+          onChange={async (e) => {
+            await saveSettings({ data: { fiscalYearStartMonth: Number(e.target.value) } });
+            await invalidate();
+            toast.success("Fiscal year updated");
+          }}
+        >
+          {MONTH_NAMES.map((name, index) => (
+            <option key={name} value={index + 1}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+        <select
+          className="h-8 rounded-md border border-input bg-background px-2 text-[13px]"
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value))}
+          aria-label="Fiscal year"
+        >
+          {years.map((choice) => (
+            <option key={choice} value={choice}>
+              {fiscalYearLabel(choice)}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground">{fiscalRangeText(year, startMonth)}</span>
+      </div>
+
+      {(["sales", "revenue"] as const).map((kind) => {
+        const existing = yearlyTarget(data.targets, kind, year);
+        const key = `${kind}-${year}`;
+        return (
+          <div key={kind} className="flex flex-wrap items-center gap-2">
+            <span className="w-16 text-xs capitalize text-muted-foreground">{kind}</span>
+            <Input
+              className="h-8 w-36 text-[13px]"
+              inputMode="decimal"
+              placeholder="Amount"
+              aria-label={`${kind} target for ${fiscalYearLabel(year)}`}
+              value={amounts[key] ?? (existing ? String(existing.target_amount) : "")}
+              onChange={(e) => setAmounts((prev) => ({ ...prev, [key]: e.target.value }))}
+            />
+            <Button size="sm" disabled={amounts[key] === undefined} onClick={() => saveYearly(kind)}>
+              Save
+            </Button>
+            {existing ? (
+              <span className="text-xs text-muted-foreground">
+                now {formatMoney(existing.target_amount)}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+    </Panel>
+  );
+}
