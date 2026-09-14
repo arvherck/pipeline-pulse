@@ -1,6 +1,7 @@
 import { utils, writeFile } from "xlsx";
 
 import { labelFor, type PipelineData } from "./pipeline-types";
+import { revenueByMonth } from "./revenue-forecast";
 import { actionRollups, laneOf } from "./use-pipeline";
 
 const OPPORTUNITY_COLUMNS = [
@@ -83,6 +84,16 @@ export function exportWorkbook(
       Notes: cell(action.notes),
       Created: action.created_at.slice(0, 10),
     }));
+
+  const revenueRows = opportunities.flatMap((row) =>
+    [...revenueByMonth(row, data.revenuePlans)].map(([month, amount]) => ({
+      Reference: row.id,
+      Opportunity: row.name,
+      Month: month.slice(0, 7),
+      Revenue: Math.round(amount),
+      Planned: data.revenuePlans.some((plan) => plan.opportunity_id === row.id) ? "Manual" : "Even spread",
+    })),
+  );
 
   const book = utils.book_new();
   utils.book_append_sheet(
