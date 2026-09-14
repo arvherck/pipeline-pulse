@@ -336,6 +336,9 @@ function Targets({ data }: { data: PipelineData }) {
   const [form, setForm] = useState<TargetForm>(EMPTY_TARGET);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const periodTargets = data.targets.filter(
+    (target) => target.kind !== "sales" && target.kind !== "revenue",
+  );
   const scopeChoices = form.scopeField
     ? data.picklists.filter((p) => p.field_name === form.scopeField)
     : [];
