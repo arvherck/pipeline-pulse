@@ -61,6 +61,27 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          created_at: string
+          fiscal_year_start_month: number
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fiscal_year_start_month?: number
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fiscal_year_start_month?: number
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       field_labels: {
         Row: {
           display_label: string
@@ -312,6 +333,41 @@ export type Database = {
         }
         Relationships: []
       }
+      revenue_plan: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          opportunity_id: string
+          period_month: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          opportunity_id: string
+          period_month: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          opportunity_id?: string
+          period_month?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_plan_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       snapshots: {
         Row: {
           created_at: string
@@ -351,7 +407,9 @@ export type Database = {
       targets: {
         Row: {
           created_at: string
+          fiscal_year: number | null
           id: string
+          kind: string
           label: string | null
           metric: string
           period: string
@@ -363,7 +421,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          fiscal_year?: number | null
           id?: string
+          kind?: string
           label?: string | null
           metric?: string
           period: string
@@ -375,7 +435,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          fiscal_year?: number | null
           id?: string
+          kind?: string
           label?: string | null
           metric?: string
           period?: string
