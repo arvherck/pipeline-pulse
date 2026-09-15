@@ -9,8 +9,9 @@ import { LastImportNote } from "@/components/last-import-note";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { downloadImportTemplate, downloadImportTemplateCsv } from "@/lib/import-template";
 import { importOpportunities } from "@/lib/pipeline.functions";
-import { IMPORT_FIELDS, labelFor, type PipelineData } from "@/lib/pipeline-types";
+import { IMPORT_FIELDS, labelFor, type FieldLabel, type PipelineData } from "@/lib/pipeline-types";
 import { pipelineQueryOptions, useInvalidatePipeline } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +75,7 @@ function ImportWizard({ data }: { data: PipelineData }) {
       setFileName(file.name);
       setHeaders(cols);
       setRows(parsed);
-      setMapping(autoMap(cols));
+      setMapping(autoMap(cols, data.fieldLabels));
       setCustomKeys({});
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not read that file");
@@ -108,11 +109,18 @@ function ImportWizard({ data }: { data: PipelineData }) {
   async function confirmImport() {
     setBusy(true);
     try {
-      const payload = buildRows().filter((row) => row["id"] != null && row["id"] !== "");
+      const built = buildRows();
+      const payload = built.filter((row) => row["id"] != null && row["id"] !== "");
       if (payload.length === 0) throw new Error("No rows had a value in the ID column");
+      const existing = new Set(data.opportunities.map((o) => o.id));
+      const updates = payload.filter((row) => existing.has(String(row["id"]))).length;
+      const adds = payload.length - updates;
+      const dropped = built.length - payload.length;
       const result = await upload({ data: { rows: payload } });
       await invalidate();
-      toast.success(`Imported ${result.imported} rows`);
+      const parts = [`${adds} added`, `${updates} updated`];
+      if (dropped > 0) parts.push(`${dropped} skipped (no ID)`);
+      toast.success(`Imported ${result.imported} rows — ${parts.join(", ")}`);
       setRows([]);
       setHeaders([]);
       setFileName("");
@@ -122,6 +130,16 @@ function ImportWizard({ data }: { data: PipelineData }) {
       setBusy(false);
     }
   }
+
+  const idHeader = headers.find((h) => mapping[h] === "id");
+  const idValues = idHeader
+    ? rows.map((r) => String(r[idHeader] ?? "").trim()).filter(Boolean)
+    : [];
+  const uniqueIds = new Set(idValues);
+  const dupIdCount = idValues.length - uniqueIds.size;
+  const existingIdSet = new Set(data.opportunities.map((o) => o.id));
+  const updateIdCount = [...uniqueIds].filter((v) => existingIdSet.has(v)).length;
+  const mappedCount = headers.filter((h) => mapping[h]).length;
 
   return (
     <div className="space-y-5">
@@ -134,7 +152,22 @@ function ImportWizard({ data }: { data: PipelineData }) {
             uploaded except the rows you confirm.
           </p>
         </div>
-        <LastImportNote className="pt-1" />
+        <div className="flex flex-col items-end gap-2 pt-1">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => downloadImportTemplate(data)}>
+              Download template (.xlsx)
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => downloadImportTemplateCsv(data)}
+            >
+              as .csv
+            </Button>
+          </div>
+          <LastImportNote />
+        </div>
       </div>
 
 
@@ -180,6 +213,26 @@ function ImportWizard({ data }: { data: PipelineData }) {
         <>
           <section className="space-y-2">
              <h2 className="font-display text-sm font-bold uppercase">Match your columns</h2>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="border border-border bg-muted/60 px-2 py-0.5">
+                {mappedCount} of {headers.length} columns mapped
+              </span>
+              {headers.length - mappedCount > 0 ? (
+                <span className="border border-border bg-muted/60 px-2 py-0.5 text-muted-foreground">
+                  {headers.length - mappedCount} skipped
+                </span>
+              ) : null}
+              {updateIdCount > 0 ? (
+                <span className="border border-primary/40 bg-accent/50 px-2 py-0.5 text-primary">
+                  {updateIdCount} rows will update existing opportunities
+                </span>
+              ) : null}
+              {dupIdCount > 0 ? (
+                <span className="border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-700">
+                  {dupIdCount} duplicate ID{dupIdCount === 1 ? "" : "s"} in file — last row wins
+                </span>
+              ) : null}
+            </div>
             {!hasId ? (
               <p className="text-xs text-destructive">
                 Map one column to the ID field — it keeps repeat imports from duplicating rows.
@@ -280,7 +333,7 @@ function ImportWizard({ data }: { data: PipelineData }) {
   );
 }
 
-function autoMap(headers: string[]): Mapping {
+function autoMap(headers: string[], fieldLabels: FieldLabel[]): Mapping {
   const mapping: Mapping = {};
   for (const header of headers) {
     const normalized = header.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -288,6 +341,7 @@ function autoMap(headers: string[]): Mapping {
       (field) =>
         field.key === normalized ||
         field.fallbackLabel.toLowerCase() === header.toLowerCase() ||
+        labelFor(fieldLabels, field.key).toLowerCase() === header.toLowerCase() ||
         field.key.replace(/_/g, "") === normalized.replace(/_/g, ""),
     );
     if (match) mapping[header] = match.key;
