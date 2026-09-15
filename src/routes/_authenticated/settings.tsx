@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { ManageLanesPanel } from "@/components/manage-lanes-panel";
+import { StateTransferPanel } from "@/components/state-transfer-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -73,6 +74,7 @@ function SettingsPage() {
         <Picklists data={data} />
         <FiscalYear data={data} />
         <Targets data={data} />
+        <StateTransferPanel data={data} />
       </div>
     </AppShell>
   );

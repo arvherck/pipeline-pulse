@@ -10,6 +10,7 @@ import {
 } from "./opportunity-schema";
 
 import type { PipelineData } from "./pipeline-types";
+import { bundleSchema } from "./state-transfer";
 
 /**
  * Recompute today's open-pipeline totals and store one row per metric per
@@ -742,4 +743,71 @@ export const resetRevenuePlan = createServerFn({ method: "POST" })
       .eq("opportunity_id", data.opportunityId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * Replace the whole database contents with a previously exported JSON bundle.
+ * Rows are cleared child-first, then written parent-first.
+ */
+export const importState = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ bundle: bundleSchema }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const bundle = data.bundle;
+
+    const wipe: Array<[string, string]> = [
+      ["opportunity_field_changes", "id"],
+      ["revenue_plan", "id"],
+      ["actions", "id"],
+      ["opportunity_status", "opportunity_id"],
+      ["snapshots", "id"],
+      ["import_runs", "id"],
+      ["opportunities", "id"],
+      ["lanes", "id"],
+      ["picklists", "id"],
+      ["field_labels", "field_name"],
+      ["targets", "id"],
+    ];
+    for (const [table, key] of wipe) {
+      const { error } = await supabase
+        .from(table as "opportunities")
+        .delete()
+        .not(key, "is", null);
+      if (error) throw new Error(`${table}: ${error.message}`);
+    }
+
+    const load: Array<[string, Array<Record<string, unknown>>]> = [
+      ["lanes", bundle.lanes],
+      ["picklists", bundle.picklists],
+      ["field_labels", bundle.field_labels],
+      ["targets", bundle.targets],
+      ["opportunities", bundle.opportunities],
+      ["opportunity_status", bundle.opportunity_status],
+      ["actions", bundle.actions],
+      ["revenue_plan", bundle.revenue_plan],
+      ["snapshots", bundle.snapshots],
+      ["import_runs", bundle.import_runs],
+      ["opportunity_field_changes", bundle.opportunity_field_changes],
+    ];
+    const counts: Record<string, number> = {};
+    for (const [table, rows] of load) {
+      for (let i = 0; i < rows.length; i += 400) {
+        const { error } = await supabase
+          .from(table as "opportunities")
+          .insert(rows.slice(i, i + 400) as never);
+        if (error) throw new Error(`${table}: ${error.message}`);
+      }
+      counts[table] = rows.length;
+    }
+
+    const { error: settingsError } = await supabase
+      .from("app_settings")
+      .upsert(
+        { id: true, fiscal_year_start_month: bundle.app_settings.fiscal_year_start_month },
+        { onConflict: "id" },
+      );
+    if (settingsError) throw new Error(settingsError.message);
+
+    return { counts };
   });
