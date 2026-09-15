@@ -74,6 +74,7 @@ function SettingsPage() {
         <Picklists data={data} />
         <FiscalYear data={data} />
         <Targets data={data} />
+        <StateTransferPanel data={data} />
       </div>
     </AppShell>
   );
