@@ -10,6 +10,7 @@ import {
 } from "./opportunity-schema";
 
 import type { PipelineData } from "./pipeline-types";
+import { bundleSchema } from "./state-transfer";
 
 /**
  * Recompute today's open-pipeline totals and store one row per metric per
