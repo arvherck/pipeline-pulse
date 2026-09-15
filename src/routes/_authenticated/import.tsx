@@ -9,8 +9,9 @@ import { LastImportNote } from "@/components/last-import-note";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { downloadImportTemplate, downloadImportTemplateCsv } from "@/lib/import-template";
 import { importOpportunities } from "@/lib/pipeline.functions";
-import { IMPORT_FIELDS, labelFor, type PipelineData } from "@/lib/pipeline-types";
+import { IMPORT_FIELDS, labelFor, type FieldLabel, type PipelineData } from "@/lib/pipeline-types";
 import { pipelineQueryOptions, useInvalidatePipeline } from "@/lib/use-pipeline";
 import { cn } from "@/lib/utils";
 
