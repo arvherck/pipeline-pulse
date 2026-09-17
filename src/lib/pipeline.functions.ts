@@ -666,9 +666,11 @@ export const deleteLane = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { data: lanes, error: lanesError } = await supabase
       .from("lanes")
-      .select("id, is_default, label");
+      .select("id, is_default, label")
+      .eq("workspace", ws);
     if (lanesError) throw new Error(lanesError.message);
     if ((lanes ?? []).length <= 1) throw new Error("You need at least one lane on the board");
     const removed = (lanes ?? []).find((l) => l.id === data.id);
@@ -680,6 +682,7 @@ export const deleteLane = createServerFn({ method: "POST" })
     const { error: moveError } = await supabase
       .from("opportunity_status")
       .update({ lane_id: data.reassignToLaneId, updated_at: new Date().toISOString() })
+      .eq("workspace", ws)
       .eq("lane_id", data.id);
     if (moveError) throw new Error(moveError.message);
 
