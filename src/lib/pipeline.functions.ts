@@ -489,6 +489,7 @@ export const addAction = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase.from("actions").insert({
       opportunity_id: data.opportunityId,
       text: data.text,
@@ -498,6 +499,7 @@ export const addAction = createServerFn({ method: "POST" })
       status: data.status,
       notes: data.notes || null,
       done: data.status === "Done",
+      workspace: ws,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
