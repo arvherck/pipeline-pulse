@@ -12,19 +12,35 @@ import {
 import type { PipelineData } from "./pipeline-types";
 import { bundleSchema } from "./state-transfer";
 
+export type Workspace = "production" | "test";
+
+/** Which of the two workspaces the app is currently pointed at. */
+async function activeWorkspace(supabase: { from: (table: string) => any }): Promise<Workspace> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("active_workspace")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.active_workspace === "test" ? "test" : "production";
+}
+
 /**
  * Recompute today's open-pipeline totals and store one row per metric per
  * slice, so the trend chart has a point per day. Re-running the same day
  * overwrites that day's row instead of adding another.
  */
-async function recordSnapshots(supabase: {
-  from: (table: string) => any;
-}): Promise<void> {
+async function recordSnapshots(
+  supabase: {
+    from: (table: string) => any;
+  },
+  workspace: Workspace,
+): Promise<void> {
   const [rows, targets] = await Promise.all([
     supabase
       .from("opportunities")
-      .select("is_open, deal_value, weighted_value, category, region, segment"),
-    supabase.from("targets").select("scope_field, scope_value"),
+      .select("is_open, deal_value, weighted_value, category, region, segment")
+      .eq("workspace", workspace),
+    supabase.from("targets").select("scope_field, scope_value").eq("workspace", workspace),
   ]);
   if (rows.error) throw new Error(rows.error.message);
   if (targets.error) throw new Error(targets.error.message);
@@ -58,13 +74,14 @@ async function recordSnapshots(supabase: {
         scope_value: value,
         total,
         open_count: scoped.length,
+        workspace,
       });
     }
   }
 
   const { error } = await supabase
     .from("snapshots")
-    .upsert(payload, { onConflict: "taken_on,metric,scope_field,scope_value" });
+    .upsert(payload, { onConflict: "workspace,taken_on,metric,scope_field,scope_value" });
   if (error) throw new Error(error.message);
 }
 
