@@ -568,11 +568,12 @@ export const saveFieldLabel = createServerFn({ method: "POST" })
     z.object({ fieldName: z.string().min(1), displayLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase
       .from("field_labels")
       .upsert(
-        { field_name: data.fieldName, display_label: data.displayLabel },
-        { onConflict: "field_name" },
+        { field_name: data.fieldName, display_label: data.displayLabel, workspace: ws },
+        { onConflict: "workspace,field_name" },
       );
     if (error) throw new Error(error.message);
     return { ok: true };
