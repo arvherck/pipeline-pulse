@@ -1,11 +1,12 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LastImportNote } from "@/components/last-import-note";
+import { pipelineQueryOptions } from "@/lib/use-pipeline";
 
 
 const NAV = [
@@ -21,6 +22,8 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data } = useQuery(pipelineQueryOptions);
+  const isTest = data?.workspace === "test";
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -31,6 +34,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
+      {isTest ? (
+        <div
+          role="status"
+          className="border-b-2 border-amber-500/60 bg-amber-500/15 px-5 py-2 text-center font-display text-xs font-semibold uppercase tracking-wide text-amber-900 lg:px-8"
+        >
+          Test environment — this is not your real data.
+        </div>
+      ) : null}
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5 md:min-h-16 md:flex-nowrap lg:px-8">
           <div className="mr-1 flex shrink-0 items-center gap-3">
@@ -39,7 +50,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="size-2 bg-primary" />
             </span>
             <div>
-              <span className="block font-display text-base font-bold uppercase leading-none">Pipeline Tracker</span>
+              <span className="flex items-center gap-2 font-display text-base font-bold uppercase leading-none">
+                Pipeline Tracker
+                {isTest ? (
+                  <span className="border border-amber-500/70 bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                    Test
+                  </span>
+                ) : null}
+              </span>
               <span className="tech-label text-primary">System online // ops 01</span>
             </div>
           </div>

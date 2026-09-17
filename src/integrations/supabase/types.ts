@@ -26,6 +26,7 @@ export type Database = {
           priority: string
           status: string
           text: string
+          workspace: string
         }
         Insert: {
           created_at?: string
@@ -38,6 +39,7 @@ export type Database = {
           priority?: string
           status?: string
           text: string
+          workspace?: string
         }
         Update: {
           created_at?: string
@@ -50,6 +52,7 @@ export type Database = {
           priority?: string
           status?: string
           text?: string
+          workspace?: string
         }
         Relationships: [
           {
@@ -63,18 +66,21 @@ export type Database = {
       }
       app_settings: {
         Row: {
+          active_workspace: string
           created_at: string
           fiscal_year_start_month: number
           id: boolean
           updated_at: string
         }
         Insert: {
+          active_workspace?: string
           created_at?: string
           fiscal_year_start_month?: number
           id?: boolean
           updated_at?: string
         }
         Update: {
+          active_workspace?: string
           created_at?: string
           fiscal_year_start_month?: number
           id?: boolean
@@ -87,16 +93,19 @@ export type Database = {
           display_label: string
           field_name: string
           updated_at: string
+          workspace: string
         }
         Insert: {
           display_label: string
           field_name: string
           updated_at?: string
+          workspace?: string
         }
         Update: {
           display_label?: string
           field_name?: string
           updated_at?: string
+          workspace?: string
         }
         Relationships: []
       }
@@ -106,18 +115,21 @@ export type Database = {
           id: string
           imported_at: string
           row_count: number
+          workspace: string
         }
         Insert: {
           created_at?: string
           id?: string
           imported_at?: string
           row_count?: number
+          workspace?: string
         }
         Update: {
           created_at?: string
           id?: string
           imported_at?: string
           row_count?: number
+          workspace?: string
         }
         Relationships: []
       }
@@ -130,6 +142,7 @@ export type Database = {
           label: string
           position: number
           stage_value: string | null
+          workspace: string
         }
         Insert: {
           color?: string
@@ -139,6 +152,7 @@ export type Database = {
           label: string
           position?: number
           stage_value?: string | null
+          workspace?: string
         }
         Update: {
           color?: string
@@ -148,6 +162,7 @@ export type Database = {
           label?: string
           position?: number
           stage_value?: string | null
+          workspace?: string
         }
         Relationships: []
       }
@@ -178,6 +193,7 @@ export type Database = {
           status_notes: string | null
           updated_at: string
           weighted_value: number | null
+          workspace: string
         }
         Insert: {
           account_name?: string | null
@@ -205,6 +221,7 @@ export type Database = {
           status_notes?: string | null
           updated_at?: string
           weighted_value?: number | null
+          workspace?: string
         }
         Update: {
           account_name?: string | null
@@ -232,6 +249,7 @@ export type Database = {
           status_notes?: string | null
           updated_at?: string
           weighted_value?: number | null
+          workspace?: string
         }
         Relationships: []
       }
@@ -243,6 +261,7 @@ export type Database = {
           new_value: string | null
           old_value: string | null
           opportunity_id: string
+          workspace: string
         }
         Insert: {
           changed_at?: string
@@ -251,6 +270,7 @@ export type Database = {
           new_value?: string | null
           old_value?: string | null
           opportunity_id: string
+          workspace?: string
         }
         Update: {
           changed_at?: string
@@ -259,6 +279,7 @@ export type Database = {
           new_value?: string | null
           old_value?: string | null
           opportunity_id?: string
+          workspace?: string
         }
         Relationships: [
           {
@@ -276,18 +297,21 @@ export type Database = {
           notes: string | null
           opportunity_id: string
           updated_at: string
+          workspace: string
         }
         Insert: {
           lane_id?: string | null
           notes?: string | null
           opportunity_id: string
           updated_at?: string
+          workspace?: string
         }
         Update: {
           lane_id?: string | null
           notes?: string | null
           opportunity_id?: string
           updated_at?: string
+          workspace?: string
         }
         Relationships: [
           {
@@ -314,6 +338,7 @@ export type Database = {
           label: string
           position: number
           value: string
+          workspace: string
         }
         Insert: {
           created_at?: string
@@ -322,6 +347,7 @@ export type Database = {
           label: string
           position?: number
           value: string
+          workspace?: string
         }
         Update: {
           created_at?: string
@@ -330,6 +356,7 @@ export type Database = {
           label?: string
           position?: number
           value?: string
+          workspace?: string
         }
         Relationships: []
       }
@@ -341,6 +368,7 @@ export type Database = {
           opportunity_id: string
           period_month: string
           updated_at: string
+          workspace: string
         }
         Insert: {
           amount?: number
@@ -349,6 +377,7 @@ export type Database = {
           opportunity_id: string
           period_month: string
           updated_at?: string
+          workspace?: string
         }
         Update: {
           amount?: number
@@ -357,6 +386,7 @@ export type Database = {
           opportunity_id?: string
           period_month?: string
           updated_at?: string
+          workspace?: string
         }
         Relationships: [
           {
@@ -379,6 +409,7 @@ export type Database = {
           taken_on: string
           total: number
           updated_at: string
+          workspace: string
         }
         Insert: {
           created_at?: string
@@ -390,6 +421,7 @@ export type Database = {
           taken_on?: string
           total?: number
           updated_at?: string
+          workspace?: string
         }
         Update: {
           created_at?: string
@@ -401,6 +433,7 @@ export type Database = {
           taken_on?: string
           total?: number
           updated_at?: string
+          workspace?: string
         }
         Relationships: []
       }
@@ -418,6 +451,7 @@ export type Database = {
           scope_field: string | null
           scope_value: string | null
           target_amount: number
+          workspace: string
         }
         Insert: {
           created_at?: string
@@ -432,6 +466,7 @@ export type Database = {
           scope_field?: string | null
           scope_value?: string | null
           target_amount?: number
+          workspace?: string
         }
         Update: {
           created_at?: string
@@ -446,6 +481,7 @@ export type Database = {
           scope_field?: string | null
           scope_value?: string | null
           target_amount?: number
+          workspace?: string
         }
         Relationships: []
       }

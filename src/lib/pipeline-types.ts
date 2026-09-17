@@ -123,7 +123,12 @@ export type FieldChange = {
   changed_at: string;
 };
 
+/** Which of the two isolated workspaces the app is currently pointed at. */
+export type Workspace = "production" | "test";
+
 export type PipelineData = {
+  /** Set server-side; every row shown belongs to this workspace. */
+  workspace: Workspace;
   opportunities: Opportunity[];
   lanes: Lane[];
   statuses: OpportunityStatus[];

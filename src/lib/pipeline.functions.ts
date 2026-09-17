@@ -12,19 +12,35 @@ import {
 import type { PipelineData } from "./pipeline-types";
 import { bundleSchema } from "./state-transfer";
 
+export type Workspace = "production" | "test";
+
+/** Which of the two workspaces the app is currently pointed at. */
+async function activeWorkspace(supabase: { from: (table: string) => any }): Promise<Workspace> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("active_workspace")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.active_workspace === "test" ? "test" : "production";
+}
+
 /**
  * Recompute today's open-pipeline totals and store one row per metric per
  * slice, so the trend chart has a point per day. Re-running the same day
  * overwrites that day's row instead of adding another.
  */
-async function recordSnapshots(supabase: {
-  from: (table: string) => any;
-}): Promise<void> {
+async function recordSnapshots(
+  supabase: {
+    from: (table: string) => any;
+  },
+  workspace: Workspace,
+): Promise<void> {
   const [rows, targets] = await Promise.all([
     supabase
       .from("opportunities")
-      .select("is_open, deal_value, weighted_value, category, region, segment"),
-    supabase.from("targets").select("scope_field, scope_value"),
+      .select("is_open, deal_value, weighted_value, category, region, segment")
+      .eq("workspace", workspace),
+    supabase.from("targets").select("scope_field, scope_value").eq("workspace", workspace),
   ]);
   if (rows.error) throw new Error(rows.error.message);
   if (targets.error) throw new Error(targets.error.message);
@@ -58,13 +74,14 @@ async function recordSnapshots(supabase: {
         scope_value: value,
         total,
         open_count: scoped.length,
+        workspace,
       });
     }
   }
 
   const { error } = await supabase
     .from("snapshots")
-    .upsert(payload, { onConflict: "taken_on,metric,scope_field,scope_value" });
+    .upsert(payload, { onConflict: "workspace,taken_on,metric,scope_field,scope_value" });
   if (error) throw new Error(error.message);
 }
 
@@ -72,6 +89,7 @@ export const getPipeline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PipelineData> => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const [
       opportunities,
       lanes,
@@ -86,27 +104,54 @@ export const getPipeline = createServerFn({ method: "GET" })
       revenuePlans,
       appSettings,
     ] = await Promise.all([
-      supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
-      supabase.from("lanes").select("*").order("position", { ascending: true }),
-      supabase.from("opportunity_status").select("*"),
-      supabase.from("actions").select("*").order("created_at", { ascending: true }),
-      supabase.from("field_labels").select("field_name, display_label"),
-      supabase.from("picklists").select("*").order("position", { ascending: true }),
-      supabase.from("targets").select("*").order("period", { ascending: true }),
+      supabase
+        .from("opportunities")
+        .select("*")
+        .eq("workspace", ws)
+        .order("close_date", { ascending: true }),
+      supabase
+        .from("lanes")
+        .select("*")
+        .eq("workspace", ws)
+        .order("position", { ascending: true }),
+      supabase.from("opportunity_status").select("*").eq("workspace", ws),
+      supabase
+        .from("actions")
+        .select("*")
+        .eq("workspace", ws)
+        .order("created_at", { ascending: true }),
+      supabase.from("field_labels").select("field_name, display_label").eq("workspace", ws),
+      supabase
+        .from("picklists")
+        .select("*")
+        .eq("workspace", ws)
+        .order("position", { ascending: true }),
+      supabase
+        .from("targets")
+        .select("*")
+        .eq("workspace", ws)
+        .order("period", { ascending: true }),
       supabase
         .from("opportunity_field_changes")
         .select("*")
+        .eq("workspace", ws)
         .order("changed_at", { ascending: false })
         .limit(500),
-      supabase.from("snapshots").select("*").order("taken_on", { ascending: true }),
+      supabase
+        .from("snapshots")
+        .select("*")
+        .eq("workspace", ws)
+        .order("taken_on", { ascending: true }),
       supabase
         .from("import_runs")
         .select("id, imported_at, row_count")
+        .eq("workspace", ws)
         .order("imported_at", { ascending: false })
         .limit(10),
       supabase
         .from("revenue_plan")
         .select("id, opportunity_id, period_month, amount")
+        .eq("workspace", ws)
         .order("period_month", { ascending: true }),
       supabase.from("app_settings").select("fiscal_year_start_month").maybeSingle(),
     ]);
@@ -127,6 +172,7 @@ export const getPipeline = createServerFn({ method: "GET" })
     if (firstError) throw new Error(firstError.message);
 
     return {
+      workspace: ws,
       opportunities: (opportunities.data ?? []) as PipelineData["opportunities"],
       lanes: (lanes.data ?? []) as PipelineData["lanes"],
       statuses: (statuses.data ?? []) as PipelineData["statuses"],
@@ -155,9 +201,11 @@ export const updateOpportunity = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { data: current, error: readError } = await supabase
       .from("opportunities")
       .select("*")
+      .eq("workspace", ws)
       .eq("id", data.opportunityId)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
@@ -218,10 +266,12 @@ export const updateOpportunity = createServerFn({ method: "POST" })
 
     const { error: logError } = await supabase
       .from("opportunity_field_changes")
-      .insert(log.map((entry) => ({ ...entry, opportunity_id: data.opportunityId })));
+      .insert(
+        log.map((entry) => ({ ...entry, opportunity_id: data.opportunityId, workspace: ws })),
+      );
     if (logError) throw new Error(logError.message);
 
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
 
     return { ok: true, changed: log.length };
 
@@ -238,11 +288,13 @@ export const setOpportunityLane = createServerFn({ method: "POST" })
     z.object({ opportunityId: z.string().min(1), laneId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase.from("opportunity_status").upsert(
       {
         opportunity_id: data.opportunityId,
         lane_id: data.laneId,
         updated_at: new Date().toISOString(),
+        workspace: ws,
       },
       { onConflict: "opportunity_id" },
     );
@@ -257,10 +309,11 @@ export const setStatusNotes = createServerFn({ method: "POST" })
     z.object({ opportunityId: z.string().min(1), notes: z.string() }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase
       .from("opportunity_status")
       .upsert(
-        { opportunity_id: data.opportunityId, notes: data.notes },
+        { opportunity_id: data.opportunityId, notes: data.notes, workspace: ws },
         { onConflict: "opportunity_id" },
       );
     if (error) throw new Error(error.message);
@@ -305,6 +358,7 @@ export const createOpportunity = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { data: clash, error: clashError } = await supabase
       .from("opportunities")
       .select("id")
@@ -324,26 +378,27 @@ export const createOpportunity = createServerFn({ method: "POST" })
 
     const { error } = await supabase
       .from("opportunities")
-      .insert({ id: data.id, ...row } as never);
+      .insert({ id: data.id, ...row, workspace: ws } as never);
     if (error) throw new Error(error.message);
 
     // Place the new deal in the default lane on the board.
     const { data: defaultLane } = await supabase
       .from("lanes")
       .select("id")
+      .eq("workspace", ws)
       .eq("is_default", true)
       .maybeSingle();
     if (defaultLane?.id) {
       const { error: placeError } = await supabase
         .from("opportunity_status")
         .upsert(
-          { opportunity_id: data.id, lane_id: defaultLane.id },
+          { opportunity_id: data.id, lane_id: defaultLane.id, workspace: ws },
           { onConflict: "opportunity_id" },
         );
       if (placeError) throw new Error(placeError.message);
     }
 
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
     return { ok: true, id: data.id };
   });
 
@@ -353,16 +408,22 @@ export const deleteOpportunity = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     for (const table of ["actions", "opportunity_field_changes", "opportunity_status"] as const) {
       const { error } = await supabase
         .from(table)
         .delete()
+        .eq("workspace", ws)
         .eq("opportunity_id", data.opportunityId);
       if (error) throw new Error(error.message);
     }
-    const { error } = await supabase.from("opportunities").delete().eq("id", data.opportunityId);
+    const { error } = await supabase
+      .from("opportunities")
+      .delete()
+      .eq("workspace", ws)
+      .eq("id", data.opportunityId);
     if (error) throw new Error(error.message);
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
     return { ok: true };
   });
 
@@ -371,6 +432,7 @@ export const importOpportunities = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ rows: z.array(opportunityRowSchema).min(1) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     // Calculated columns are always worked out here, never taken from the file.
     const rows = data.rows.map((row) => {
       const calculated = withCalculatedFields(row, { createdAt: null });
@@ -381,6 +443,7 @@ export const importOpportunities = createServerFn({ method: "POST" })
           row.last_stage_change == null
             ? row.stage_duration_days
             : calculated.stage_duration_days,
+        workspace: ws,
       };
     });
 
@@ -397,10 +460,10 @@ export const importOpportunities = createServerFn({ method: "POST" })
     // Record the run so the app can show when data last came in.
     const { error: runError } = await supabase
       .from("import_runs")
-      .insert({ row_count: rows.length });
+      .insert({ row_count: rows.length, workspace: ws });
     if (runError) throw new Error(runError.message);
 
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
 
 
     return { imported: rows.length, placed };
@@ -426,6 +489,7 @@ export const addAction = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase.from("actions").insert({
       opportunity_id: data.opportunityId,
       text: data.text,
@@ -435,6 +499,7 @@ export const addAction = createServerFn({ method: "POST" })
       status: data.status,
       notes: data.notes || null,
       done: data.status === "Done",
+      workspace: ws,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -503,11 +568,12 @@ export const saveFieldLabel = createServerFn({ method: "POST" })
     z.object({ fieldName: z.string().min(1), displayLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase
       .from("field_labels")
       .upsert(
-        { field_name: data.fieldName, display_label: data.displayLabel },
-        { onConflict: "field_name" },
+        { field_name: data.fieldName, display_label: data.displayLabel, workspace: ws },
+        { onConflict: "workspace,field_name" },
       );
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -526,14 +592,16 @@ export const savePicklistValue = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase.from("picklists").upsert(
       {
         field_name: data.fieldName,
         value: data.value,
         label: data.label,
         position: data.position,
+        workspace: ws,
       },
-      { onConflict: "field_name,value" },
+      { onConflict: "workspace,field_name,value" },
     );
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -564,6 +632,7 @@ export const saveLane = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
 
     const payload = {
       label: data.label,
@@ -575,12 +644,13 @@ export const saveLane = createServerFn({ method: "POST" })
       const { error } = await supabase
         .from("lanes")
         .update({ is_default: false })
+        .eq("workspace", ws)
         .neq("id", data.id ?? "00000000-0000-0000-0000-000000000000");
       if (error) throw new Error(error.message);
     }
     const { error } = data.id
-      ? await supabase.from("lanes").update(payload).eq("id", data.id)
-      : await supabase.from("lanes").insert(payload);
+      ? await supabase.from("lanes").update(payload).eq("workspace", ws).eq("id", data.id)
+      : await supabase.from("lanes").insert({ ...payload, workspace: ws });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -596,9 +666,11 @@ export const deleteLane = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { data: lanes, error: lanesError } = await supabase
       .from("lanes")
-      .select("id, is_default, label");
+      .select("id, is_default, label")
+      .eq("workspace", ws);
     if (lanesError) throw new Error(lanesError.message);
     if ((lanes ?? []).length <= 1) throw new Error("You need at least one lane on the board");
     const removed = (lanes ?? []).find((l) => l.id === data.id);
@@ -610,6 +682,7 @@ export const deleteLane = createServerFn({ method: "POST" })
     const { error: moveError } = await supabase
       .from("opportunity_status")
       .update({ lane_id: data.reassignToLaneId, updated_at: new Date().toISOString() })
+      .eq("workspace", ws)
       .eq("lane_id", data.id);
     if (moveError) throw new Error(moveError.message);
 
@@ -648,6 +721,7 @@ export const saveTarget = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const scopeField = data.scopeField && data.scopeValue ? data.scopeField : null;
     const payload = {
       period: data.period,
@@ -662,12 +736,16 @@ export const saveTarget = createServerFn({ method: "POST" })
       fiscal_year: data.fiscalYear ?? null,
     };
     const { error } = data.id
-      ? await context.supabase.from("targets").update(payload).eq("id", data.id)
-      : await context.supabase.from("targets").insert(payload);
+      ? await context.supabase
+          .from("targets")
+          .update(payload)
+          .eq("workspace", ws)
+          .eq("id", data.id)
+      : await context.supabase.from("targets").insert({ ...payload, workspace: ws });
     if (error) throw new Error(error.message);
 
     // Start collecting the series for this target's slice right away.
-    await recordSnapshots(context.supabase);
+    await recordSnapshots(context.supabase, ws);
     return { ok: true };
   });
 
@@ -713,9 +791,11 @@ export const saveRevenuePlan = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { error: clearError } = await supabase
       .from("revenue_plan")
       .delete()
+      .eq("workspace", ws)
       .eq("opportunity_id", data.opportunityId);
     if (clearError) throw new Error(clearError.message);
 
@@ -725,6 +805,7 @@ export const saveRevenuePlan = createServerFn({ method: "POST" })
           opportunity_id: data.opportunityId,
           period_month: `${entry.month.slice(0, 7)}-01`,
           amount: entry.amount,
+          workspace: ws,
         })),
       );
       if (error) throw new Error(error.message);
@@ -737,12 +818,152 @@ export const resetRevenuePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase
       .from("revenue_plan")
       .delete()
+      .eq("workspace", ws)
       .eq("opportunity_id", data.opportunityId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/** Point the app at the production or the test workspace. Nothing is deleted. */
+export const setActiveWorkspace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ workspace: z.enum(["production", "test"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("app_settings")
+      .upsert({ id: true, active_workspace: data.workspace }, { onConflict: "id" });
+    if (error) throw new Error(error.message);
+    return { ok: true, workspace: data.workspace };
+  });
+
+/**
+ * Refill the test workspace with a copy of production. Only test rows are
+ * touched; production is read-only here. Deal references are prefixed so the
+ * two workspaces never share an id.
+ */
+export const copyProductionToTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const testId = (id: string) => (id.startsWith("TEST-") ? id : `TEST-${id}`);
+
+    // Clear the test workspace child-first.
+    const wipe: Array<[string, string]> = [
+      ["opportunity_field_changes", "id"],
+      ["revenue_plan", "id"],
+      ["actions", "id"],
+      ["opportunity_status", "opportunity_id"],
+      ["snapshots", "id"],
+      ["import_runs", "id"],
+      ["opportunities", "id"],
+      ["lanes", "id"],
+      ["picklists", "id"],
+      ["field_labels", "field_name"],
+      ["targets", "id"],
+    ];
+    for (const [table, key] of wipe) {
+      const { error } = await supabase
+        .from(table as "opportunities")
+        .delete()
+        .eq("workspace", "test")
+        .not(key, "is", null);
+      if (error) throw new Error(`${table}: ${error.message}`);
+    }
+
+    const read = async (table: string, columns: string) => {
+      const { data, error } = await supabase
+        .from(table as "opportunities")
+        .select(columns)
+        .eq("workspace", "production");
+      if (error) throw new Error(`${table}: ${error.message}`);
+      return (data ?? []) as unknown as Array<Record<string, unknown>>;
+    };
+
+    const [lanes, picklists, fieldLabels, targets, opportunities, statuses, actions, plans] =
+      await Promise.all([
+        read("lanes", "label, position, color, is_default, stage_value"),
+        read("picklists", "field_name, value, label, position"),
+        read("field_labels", "field_name, display_label"),
+        read(
+          "targets",
+          "period, target_amount, metric, label, period_start, period_end, scope_field, scope_value, kind, fiscal_year",
+        ),
+        read("opportunities", "*"),
+        read("opportunity_status", "opportunity_id, lane_id, notes"),
+        read("actions", "opportunity_id, text, owner, due_date, done, priority, status, notes"),
+        read("revenue_plan", "opportunity_id, period_month, amount"),
+      ]);
+
+    const write = async (table: string, rows: Array<Record<string, unknown>>) => {
+      for (let i = 0; i < rows.length; i += 400) {
+        const { error } = await supabase
+          .from(table as "opportunities")
+          .insert(rows.slice(i, i + 400).map((row) => ({ ...row, workspace: "test" })) as never);
+        if (error) throw new Error(`${table}: ${error.message}`);
+      }
+      return rows.length;
+    };
+
+    // Lanes get new ids in the test workspace, so remap placements by label.
+    const laneIdToLabel = new Map<string, string>();
+    {
+      const { data: prodLanes, error } = await supabase
+        .from("lanes")
+        .select("id, label")
+        .eq("workspace", "production");
+      if (error) throw new Error(error.message);
+      for (const lane of prodLanes ?? []) laneIdToLabel.set(lane.id, lane.label);
+    }
+
+    const counts: Record<string, number> = {};
+    counts["lanes"] = await write("lanes", lanes);
+    counts["picklists"] = await write("picklists", picklists);
+    counts["field_labels"] = await write("field_labels", fieldLabels);
+    counts["targets"] = await write("targets", targets);
+
+    const { data: newLanes, error: newLanesError } = await supabase
+      .from("lanes")
+      .select("id, label")
+      .eq("workspace", "test");
+    if (newLanesError) throw new Error(newLanesError.message);
+    const labelToNewLane = new Map<string, string>();
+    for (const lane of newLanes ?? []) labelToNewLane.set(lane.label, lane.id);
+
+    counts["opportunities"] = await write(
+      "opportunities",
+      opportunities.map((row) => {
+        const { created_at: _created, updated_at: _updated, ...rest } = row;
+        return { ...rest, id: testId(String(row["id"])) };
+      }),
+    );
+    counts["opportunity_status"] = await write(
+      "opportunity_status",
+      statuses.map((row) => {
+        const label = laneIdToLabel.get(String(row["lane_id"] ?? ""));
+        return {
+          opportunity_id: testId(String(row["opportunity_id"])),
+          lane_id: label ? (labelToNewLane.get(label) ?? null) : null,
+          notes: row["notes"] ?? null,
+        };
+      }),
+    );
+    counts["actions"] = await write(
+      "actions",
+      actions.map((row) => ({ ...row, opportunity_id: testId(String(row["opportunity_id"])) })),
+    );
+    counts["revenue_plan"] = await write(
+      "revenue_plan",
+      plans.map((row) => ({ ...row, opportunity_id: testId(String(row["opportunity_id"])) })),
+    );
+
+    await recordSnapshots(supabase, "test");
+    return { ok: true, counts };
   });
 
 /**
@@ -754,6 +975,7 @@ export const importState = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ bundle: bundleSchema }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const bundle = data.bundle;
 
     const wipe: Array<[string, string]> = [
@@ -773,6 +995,7 @@ export const importState = createServerFn({ method: "POST" })
       const { error } = await supabase
         .from(table as "opportunities")
         .delete()
+        .eq("workspace", ws)
         .not(key, "is", null);
       if (error) throw new Error(`${table}: ${error.message}`);
     }
@@ -792,10 +1015,12 @@ export const importState = createServerFn({ method: "POST" })
     ];
     const counts: Record<string, number> = {};
     for (const [table, rows] of load) {
-      for (let i = 0; i < rows.length; i += 400) {
+      // Whatever workspace the file came from, it loads into the active one.
+      const stamped = rows.map((row) => ({ ...row, workspace: ws }));
+      for (let i = 0; i < stamped.length; i += 400) {
         const { error } = await supabase
           .from(table as "opportunities")
-          .insert(rows.slice(i, i + 400) as never);
+          .insert(stamped.slice(i, i + 400) as never);
         if (error) throw new Error(`${table}: ${error.message}`);
       }
       counts[table] = rows.length;
