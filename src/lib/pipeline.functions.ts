@@ -288,11 +288,13 @@ export const setOpportunityLane = createServerFn({ method: "POST" })
     z.object({ opportunityId: z.string().min(1), laneId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase.from("opportunity_status").upsert(
       {
         opportunity_id: data.opportunityId,
         lane_id: data.laneId,
         updated_at: new Date().toISOString(),
+        workspace: ws,
       },
       { onConflict: "opportunity_id" },
     );
