@@ -975,6 +975,7 @@ export const importState = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ bundle: bundleSchema }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const bundle = data.bundle;
 
     const wipe: Array<[string, string]> = [
@@ -994,6 +995,7 @@ export const importState = createServerFn({ method: "POST" })
       const { error } = await supabase
         .from(table as "opportunities")
         .delete()
+        .eq("workspace", ws)
         .not(key, "is", null);
       if (error) throw new Error(`${table}: ${error.message}`);
     }
@@ -1013,10 +1015,12 @@ export const importState = createServerFn({ method: "POST" })
     ];
     const counts: Record<string, number> = {};
     for (const [table, rows] of load) {
-      for (let i = 0; i < rows.length; i += 400) {
+      // Whatever workspace the file came from, it loads into the active one.
+      const stamped = rows.map((row) => ({ ...row, workspace: ws }));
+      for (let i = 0; i < stamped.length; i += 400) {
         const { error } = await supabase
           .from(table as "opportunities")
-          .insert(rows.slice(i, i + 400) as never);
+          .insert(stamped.slice(i, i + 400) as never);
         if (error) throw new Error(`${table}: ${error.message}`);
       }
       counts[table] = rows.length;
