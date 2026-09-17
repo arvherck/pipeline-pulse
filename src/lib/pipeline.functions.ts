@@ -89,6 +89,7 @@ export const getPipeline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PipelineData> => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const [
       opportunities,
       lanes,
@@ -103,27 +104,54 @@ export const getPipeline = createServerFn({ method: "GET" })
       revenuePlans,
       appSettings,
     ] = await Promise.all([
-      supabase.from("opportunities").select("*").order("close_date", { ascending: true }),
-      supabase.from("lanes").select("*").order("position", { ascending: true }),
-      supabase.from("opportunity_status").select("*"),
-      supabase.from("actions").select("*").order("created_at", { ascending: true }),
-      supabase.from("field_labels").select("field_name, display_label"),
-      supabase.from("picklists").select("*").order("position", { ascending: true }),
-      supabase.from("targets").select("*").order("period", { ascending: true }),
+      supabase
+        .from("opportunities")
+        .select("*")
+        .eq("workspace", ws)
+        .order("close_date", { ascending: true }),
+      supabase
+        .from("lanes")
+        .select("*")
+        .eq("workspace", ws)
+        .order("position", { ascending: true }),
+      supabase.from("opportunity_status").select("*").eq("workspace", ws),
+      supabase
+        .from("actions")
+        .select("*")
+        .eq("workspace", ws)
+        .order("created_at", { ascending: true }),
+      supabase.from("field_labels").select("field_name, display_label").eq("workspace", ws),
+      supabase
+        .from("picklists")
+        .select("*")
+        .eq("workspace", ws)
+        .order("position", { ascending: true }),
+      supabase
+        .from("targets")
+        .select("*")
+        .eq("workspace", ws)
+        .order("period", { ascending: true }),
       supabase
         .from("opportunity_field_changes")
         .select("*")
+        .eq("workspace", ws)
         .order("changed_at", { ascending: false })
         .limit(500),
-      supabase.from("snapshots").select("*").order("taken_on", { ascending: true }),
+      supabase
+        .from("snapshots")
+        .select("*")
+        .eq("workspace", ws)
+        .order("taken_on", { ascending: true }),
       supabase
         .from("import_runs")
         .select("id, imported_at, row_count")
+        .eq("workspace", ws)
         .order("imported_at", { ascending: false })
         .limit(10),
       supabase
         .from("revenue_plan")
         .select("id, opportunity_id, period_month, amount")
+        .eq("workspace", ws)
         .order("period_month", { ascending: true }),
       supabase.from("app_settings").select("fiscal_year_start_month").maybeSingle(),
     ]);
@@ -144,6 +172,7 @@ export const getPipeline = createServerFn({ method: "GET" })
     if (firstError) throw new Error(firstError.message);
 
     return {
+      workspace: ws,
       opportunities: (opportunities.data ?? []) as PipelineData["opportunities"],
       lanes: (lanes.data ?? []) as PipelineData["lanes"],
       statuses: (statuses.data ?? []) as PipelineData["statuses"],
