@@ -201,9 +201,11 @@ export const updateOpportunity = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { data: current, error: readError } = await supabase
       .from("opportunities")
       .select("*")
+      .eq("workspace", ws)
       .eq("id", data.opportunityId)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
