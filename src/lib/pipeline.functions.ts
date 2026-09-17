@@ -791,9 +791,11 @@ export const saveRevenuePlan = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { error: clearError } = await supabase
       .from("revenue_plan")
       .delete()
+      .eq("workspace", ws)
       .eq("opportunity_id", data.opportunityId);
     if (clearError) throw new Error(clearError.message);
 
@@ -803,6 +805,7 @@ export const saveRevenuePlan = createServerFn({ method: "POST" })
           opportunity_id: data.opportunityId,
           period_month: `${entry.month.slice(0, 7)}-01`,
           amount: entry.amount,
+          workspace: ws,
         })),
       );
       if (error) throw new Error(error.message);
