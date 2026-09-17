@@ -592,14 +592,16 @@ export const savePicklistValue = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase.from("picklists").upsert(
       {
         field_name: data.fieldName,
         value: data.value,
         label: data.label,
         position: data.position,
+        workspace: ws,
       },
-      { onConflict: "field_name,value" },
+      { onConflict: "workspace,field_name,value" },
     );
     if (error) throw new Error(error.message);
     return { ok: true };
