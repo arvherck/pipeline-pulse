@@ -721,6 +721,7 @@ export const saveTarget = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const scopeField = data.scopeField && data.scopeValue ? data.scopeField : null;
     const payload = {
       period: data.period,
@@ -735,12 +736,16 @@ export const saveTarget = createServerFn({ method: "POST" })
       fiscal_year: data.fiscalYear ?? null,
     };
     const { error } = data.id
-      ? await context.supabase.from("targets").update(payload).eq("id", data.id)
-      : await context.supabase.from("targets").insert(payload);
+      ? await context.supabase
+          .from("targets")
+          .update(payload)
+          .eq("workspace", ws)
+          .eq("id", data.id)
+      : await context.supabase.from("targets").insert({ ...payload, workspace: ws });
     if (error) throw new Error(error.message);
 
     // Start collecting the series for this target's slice right away.
-    await recordSnapshots(context.supabase);
+    await recordSnapshots(context.supabase, ws);
     return { ok: true };
   });
 
