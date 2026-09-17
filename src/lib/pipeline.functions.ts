@@ -432,6 +432,7 @@ export const importOpportunities = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ rows: z.array(opportunityRowSchema).min(1) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     // Calculated columns are always worked out here, never taken from the file.
     const rows = data.rows.map((row) => {
       const calculated = withCalculatedFields(row, { createdAt: null });
@@ -442,6 +443,7 @@ export const importOpportunities = createServerFn({ method: "POST" })
           row.last_stage_change == null
             ? row.stage_duration_days
             : calculated.stage_duration_days,
+        workspace: ws,
       };
     });
 
@@ -458,10 +460,10 @@ export const importOpportunities = createServerFn({ method: "POST" })
     // Record the run so the app can show when data last came in.
     const { error: runError } = await supabase
       .from("import_runs")
-      .insert({ row_count: rows.length });
+      .insert({ row_count: rows.length, workspace: ws });
     if (runError) throw new Error(runError.message);
 
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
 
 
     return { imported: rows.length, placed };
