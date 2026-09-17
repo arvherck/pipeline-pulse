@@ -358,6 +358,7 @@ export const createOpportunity = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     const { data: clash, error: clashError } = await supabase
       .from("opportunities")
       .select("id")
@@ -377,26 +378,27 @@ export const createOpportunity = createServerFn({ method: "POST" })
 
     const { error } = await supabase
       .from("opportunities")
-      .insert({ id: data.id, ...row } as never);
+      .insert({ id: data.id, ...row, workspace: ws } as never);
     if (error) throw new Error(error.message);
 
     // Place the new deal in the default lane on the board.
     const { data: defaultLane } = await supabase
       .from("lanes")
       .select("id")
+      .eq("workspace", ws)
       .eq("is_default", true)
       .maybeSingle();
     if (defaultLane?.id) {
       const { error: placeError } = await supabase
         .from("opportunity_status")
         .upsert(
-          { opportunity_id: data.id, lane_id: defaultLane.id },
+          { opportunity_id: data.id, lane_id: defaultLane.id, workspace: ws },
           { onConflict: "opportunity_id" },
         );
       if (placeError) throw new Error(placeError.message);
     }
 
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
     return { ok: true, id: data.id };
   });
 
