@@ -21,6 +21,9 @@ export const bundleSchema = z.object({
   import_runs: z.array(row).default([]),
   opportunity_field_changes: z.array(row).default([]),
   app_settings: z.object({ fiscal_year_start_month: z.number().int().min(1).max(12) }),
+  // Which environment the file came from. Information only: a restore always
+  // loads into whichever environment is active.
+  workspace: z.enum(["production", "test"]).optional(),
 });
 
 export type StateBundle = z.infer<typeof bundleSchema>;
@@ -42,6 +45,7 @@ export function buildBundle(data: PipelineData): StateBundle {
     import_runs: data.importRuns as unknown as StateBundle["import_runs"],
     opportunity_field_changes: data.changes as unknown as StateBundle["opportunity_field_changes"],
     app_settings: { fiscal_year_start_month: data.appSettings.fiscal_year_start_month },
+    workspace: data.workspace,
   };
 }
 
