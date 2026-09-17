@@ -408,16 +408,22 @@ export const deleteOpportunity = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
     for (const table of ["actions", "opportunity_field_changes", "opportunity_status"] as const) {
       const { error } = await supabase
         .from(table)
         .delete()
+        .eq("workspace", ws)
         .eq("opportunity_id", data.opportunityId);
       if (error) throw new Error(error.message);
     }
-    const { error } = await supabase.from("opportunities").delete().eq("id", data.opportunityId);
+    const { error } = await supabase
+      .from("opportunities")
+      .delete()
+      .eq("workspace", ws)
+      .eq("id", data.opportunityId);
     if (error) throw new Error(error.message);
-    await recordSnapshots(supabase);
+    await recordSnapshots(supabase, ws);
     return { ok: true };
   });
 
