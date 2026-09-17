@@ -818,12 +818,152 @@ export const resetRevenuePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ opportunityId: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase
       .from("revenue_plan")
       .delete()
+      .eq("workspace", ws)
       .eq("opportunity_id", data.opportunityId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/** Point the app at the production or the test workspace. Nothing is deleted. */
+export const setActiveWorkspace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ workspace: z.enum(["production", "test"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("app_settings")
+      .upsert({ id: true, active_workspace: data.workspace }, { onConflict: "id" });
+    if (error) throw new Error(error.message);
+    return { ok: true, workspace: data.workspace };
+  });
+
+/**
+ * Refill the test workspace with a copy of production. Only test rows are
+ * touched; production is read-only here. Deal references are prefixed so the
+ * two workspaces never share an id.
+ */
+export const copyProductionToTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const testId = (id: string) => (id.startsWith("TEST-") ? id : `TEST-${id}`);
+
+    // Clear the test workspace child-first.
+    const wipe: Array<[string, string]> = [
+      ["opportunity_field_changes", "id"],
+      ["revenue_plan", "id"],
+      ["actions", "id"],
+      ["opportunity_status", "opportunity_id"],
+      ["snapshots", "id"],
+      ["import_runs", "id"],
+      ["opportunities", "id"],
+      ["lanes", "id"],
+      ["picklists", "id"],
+      ["field_labels", "field_name"],
+      ["targets", "id"],
+    ];
+    for (const [table, key] of wipe) {
+      const { error } = await supabase
+        .from(table as "opportunities")
+        .delete()
+        .eq("workspace", "test")
+        .not(key, "is", null);
+      if (error) throw new Error(`${table}: ${error.message}`);
+    }
+
+    const read = async (table: string, columns: string) => {
+      const { data, error } = await supabase
+        .from(table as "opportunities")
+        .select(columns)
+        .eq("workspace", "production");
+      if (error) throw new Error(`${table}: ${error.message}`);
+      return (data ?? []) as unknown as Array<Record<string, unknown>>;
+    };
+
+    const [lanes, picklists, fieldLabels, targets, opportunities, statuses, actions, plans] =
+      await Promise.all([
+        read("lanes", "label, position, color, is_default, stage_value"),
+        read("picklists", "field_name, value, label, position"),
+        read("field_labels", "field_name, display_label"),
+        read(
+          "targets",
+          "period, target_amount, metric, label, period_start, period_end, scope_field, scope_value, kind, fiscal_year",
+        ),
+        read("opportunities", "*"),
+        read("opportunity_status", "opportunity_id, lane_id, notes"),
+        read("actions", "opportunity_id, text, owner, due_date, done, priority, status, notes"),
+        read("revenue_plan", "opportunity_id, period_month, amount"),
+      ]);
+
+    const write = async (table: string, rows: Array<Record<string, unknown>>) => {
+      for (let i = 0; i < rows.length; i += 400) {
+        const { error } = await supabase
+          .from(table as "opportunities")
+          .insert(rows.slice(i, i + 400).map((row) => ({ ...row, workspace: "test" })) as never);
+        if (error) throw new Error(`${table}: ${error.message}`);
+      }
+      return rows.length;
+    };
+
+    // Lanes get new ids in the test workspace, so remap placements by label.
+    const laneIdToLabel = new Map<string, string>();
+    {
+      const { data: prodLanes, error } = await supabase
+        .from("lanes")
+        .select("id, label")
+        .eq("workspace", "production");
+      if (error) throw new Error(error.message);
+      for (const lane of prodLanes ?? []) laneIdToLabel.set(lane.id, lane.label);
+    }
+
+    const counts: Record<string, number> = {};
+    counts["lanes"] = await write("lanes", lanes);
+    counts["picklists"] = await write("picklists", picklists);
+    counts["field_labels"] = await write("field_labels", fieldLabels);
+    counts["targets"] = await write("targets", targets);
+
+    const { data: newLanes, error: newLanesError } = await supabase
+      .from("lanes")
+      .select("id, label")
+      .eq("workspace", "test");
+    if (newLanesError) throw new Error(newLanesError.message);
+    const labelToNewLane = new Map<string, string>();
+    for (const lane of newLanes ?? []) labelToNewLane.set(lane.label, lane.id);
+
+    counts["opportunities"] = await write(
+      "opportunities",
+      opportunities.map((row) => {
+        const { created_at: _created, updated_at: _updated, ...rest } = row;
+        return { ...rest, id: testId(String(row["id"])) };
+      }),
+    );
+    counts["opportunity_status"] = await write(
+      "opportunity_status",
+      statuses.map((row) => {
+        const label = laneIdToLabel.get(String(row["lane_id"] ?? ""));
+        return {
+          opportunity_id: testId(String(row["opportunity_id"])),
+          lane_id: label ? (labelToNewLane.get(label) ?? null) : null,
+          notes: row["notes"] ?? null,
+        };
+      }),
+    );
+    counts["actions"] = await write(
+      "actions",
+      actions.map((row) => ({ ...row, opportunity_id: testId(String(row["opportunity_id"])) })),
+    );
+    counts["revenue_plan"] = await write(
+      "revenue_plan",
+      plans.map((row) => ({ ...row, opportunity_id: testId(String(row["opportunity_id"])) })),
+    );
+
+    await recordSnapshots(supabase, "test");
+    return { ok: true, counts };
   });
 
 /**
