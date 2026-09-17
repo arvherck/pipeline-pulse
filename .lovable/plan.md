@@ -1,23 +1,29 @@
-# Clear out the test data in one click
+# Test / Production switch
 
-The app is full of sample deals and made-up actions. This adds a small "Start clean" module in Settings, right under Backup & restore, so you can wipe the practice data without touching your setup.
+Instead of deleting the sample data, the app gets two completely separate workspaces and a switch between them. Nothing ever mixes: each workspace has its own deals, actions, board placement, revenue plans, targets, board lanes, field names, picklists, history and snapshots.
 
-## Two buttons
+## How it works
 
-**Clear deals & actions** — removes every opportunity, its actions, board placement, revenue plans, history entries and saved snapshots. Keeps everything you configured: board lanes, field names, picklists, targets, and the fiscal year setting. This is the one to use when you want a real, empty pipeline to start entering your own deals.
+- A switch in Settings, at the top of a new "Environment" module: **Production** or **Test**.
+- Switching is instant and reversible — no data is deleted, ever. What you were looking at is still there when you switch back.
+- Everything in the app follows the active workspace: board, table, dashboard, actions, import, export, settings lists.
+- Today's contents (the 40 sample deals and their actions) stay where they are, in **Test**, so Production starts empty and ready for your real pipeline. Test keeps being your playground.
+- Test starts out with the standard board lanes, field names and picklists so it works straight away.
+- One helper button: **Copy Production into Test** — replaces the Test workspace with a copy of Production, for trying something risky against realistic data. It asks for confirmation and only ever writes into Test.
 
-**Reset everything** — as above, and also clears picklists, field names, targets and import history, and puts the fiscal year setting back to September. You end up with the same starting point as a brand new app (the five default board lanes and default field names are put back so the app still works).
+## Making it obvious
 
-## Safety
-
-- Each button opens a confirmation that spells out exactly what will be removed and how many rows that is right now ("40 opportunities, 18 actions, 7 history entries…").
-- The confirmation offers to save a backup file first, using the existing Export state, so nothing is lost by accident.
-- You have to type nothing, but the confirm button is worded plainly ("Delete 40 opportunities") so it can't be clicked by reflex.
-- After it finishes, the board, table and dashboard show the empty state that already exists ("No opportunities yet — import a spreadsheet, or add one by hand").
+- While in Test mode a coloured strip sits across the top of every page: "Test environment — this is not your real data."
+- A small "TEST" badge sits next to the app name in the sidebar, visible on every page.
+- Production mode shows neither, so the normal view stays clean.
+- Backup files record which workspace they came from, and restoring a file loads into the workspace you are currently in (the confirmation says which one).
 
 ## Technical notes
 
-- New server function `clearData` in `src/lib/pipeline.functions.ts` (POST, `requireSupabaseAuth`), input `{ scope: "deals" | "all" }`. Deletes child-first in the same order `importState` already uses: `opportunity_field_changes`, `revenue_plan`, `actions`, `opportunity_status`, `snapshots`, `opportunities`. For `scope: "all"` it additionally clears `import_runs`, `picklists`, `field_labels`, `targets`, re-seeds the five default lanes and the default `field_labels`, and upserts `app_settings` back to `fiscal_year_start_month: 9`. Returns per-table counts.
-- Reuses the delete-with-not-null-filter pattern from `importState`; lanes are deleted and re-inserted only in the `all` scope so `opportunity_status` FKs are already gone.
-- UI: new `ResetDataPanel` in `src/components/reset-data-panel.tsx` using `AlertDialog` like `state-transfer-panel.tsx`, counts derived from the loaded `PipelineData`, `useServerFn(clearData)` + `useInvalidatePipeline()`, "Save a backup first" calling `downloadJson(bundleFilename(), buildBundle(data))` from `src/lib/state-transfer.ts`. Rendered in `src/routes/_authenticated/settings.tsx` after `StateTransferPanel`.
-- No schema change; no migration needed.
+- Migration (additive only): add `workspace text not null default 'production'` to `opportunities`, `actions`, `opportunity_status`, `lanes`, `picklists`, `field_labels`, `targets`, `revenue_plan`, `snapshots`, `import_runs`, `opportunity_field_changes`. Add a `check (workspace in ('production','test'))` and an index on `(workspace)` for the large tables. `app_settings` gains `active_workspace text not null default 'production'`.
+- Composite-key uniqueness widens per workspace: `field_labels` key becomes `(workspace, field_name)`, `revenue_plan` unique becomes `(workspace, opportunity_id, period_month)`, `lanes.stage_value` unique becomes `(workspace, stage_value)`. `opportunities.id` stays the primary key, so a deal reference is unique across both workspaces (the copy step prefixes copied Test references, e.g. `TEST-<id>`) — FKs stay intact.
+- Backfill in the same migration: existing rows are marked `workspace = 'test'`, then a seed of default `lanes`, `field_labels` and `picklists` rows is inserted with `workspace = 'production'` (INSERT ... SELECT from the test rows).
+- `src/lib/pipeline.functions.ts`: `getPipeline` reads `active_workspace` from `app_settings` first, then adds `.eq('workspace', ws)` to every select. Every write function (`saveOpportunity`, `deleteOpportunity`, `saveAction`, `setOpportunityLane`, `saveLane`, `deleteLane`, `savePicklist`, `saveFieldLabel`, `saveTarget`, `saveRevenuePlan`, `resetRevenuePlan`, snapshot recording, the import upsert, `importState`) stamps and filters on the same value, resolved server-side — never taken from the client.
+- New server functions: `setActiveWorkspace({ workspace })` upserting `app_settings`, and `copyProductionToTest()` which deletes Test rows child-first then re-inserts from Production in 400-row batches with remapped opportunity ids.
+- `PipelineData` gains `workspace`; `src/components/app-shell.tsx` renders the banner and sidebar badge from it; new `src/components/environment-panel.tsx` holds the switch and the copy button, rendered in `src/routes/_authenticated/settings.tsx` above Backup & restore.
+- `src/lib/state-transfer.ts` bundle gains an optional `workspace` field for information only; `importState` keeps writing into the active workspace.
