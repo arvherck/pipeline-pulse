@@ -632,6 +632,7 @@ export const saveLane = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const ws = await activeWorkspace(supabase);
 
     const payload = {
       label: data.label,
@@ -643,12 +644,13 @@ export const saveLane = createServerFn({ method: "POST" })
       const { error } = await supabase
         .from("lanes")
         .update({ is_default: false })
+        .eq("workspace", ws)
         .neq("id", data.id ?? "00000000-0000-0000-0000-000000000000");
       if (error) throw new Error(error.message);
     }
     const { error } = data.id
-      ? await supabase.from("lanes").update(payload).eq("id", data.id)
-      : await supabase.from("lanes").insert(payload);
+      ? await supabase.from("lanes").update(payload).eq("workspace", ws).eq("id", data.id)
+      : await supabase.from("lanes").insert({ ...payload, workspace: ws });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
