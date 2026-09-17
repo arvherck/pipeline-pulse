@@ -309,10 +309,11 @@ export const setStatusNotes = createServerFn({ method: "POST" })
     z.object({ opportunityId: z.string().min(1), notes: z.string() }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    const ws = await activeWorkspace(context.supabase);
     const { error } = await context.supabase
       .from("opportunity_status")
       .upsert(
-        { opportunity_id: data.opportunityId, notes: data.notes },
+        { opportunity_id: data.opportunityId, notes: data.notes, workspace: ws },
         { onConflict: "opportunity_id" },
       );
     if (error) throw new Error(error.message);
