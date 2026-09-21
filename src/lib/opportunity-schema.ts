@@ -27,7 +27,6 @@ export const EDITABLE_FIELDS: EditableField[] = [
   { key: "owner", kind: "text" },
   { key: "category", kind: "select" },
   { key: "region", kind: "select" },
-  { key: "segment", kind: "select" },
   { key: "deal_value", kind: "money" },
   { key: "weighted_value", kind: "money" },
   { key: "probability", kind: "percent" },
@@ -142,32 +141,19 @@ export function warningsFor(patch: {
 }
 
 export function isPicklistField(key: string): boolean {
-  return key === "stage" || key === "segment" || key === "category" || key === "region";
+  return key === "stage" || key === "category" || key === "region";
 }
 
 /* ---------- Data-quality helpers ---------- */
 
 export const SEGMENT_BANDS = ["<$2m", "$2m-$5m", ">$5m"] as const;
 
-/** The segment a deal value implies; boundary amounts count as the middle band. */
-export function segmentForValue(dealValue: number | null | undefined): string | null {
-  if (dealValue == null || Number.isNaN(dealValue)) return null;
-  if (dealValue < 2_000_000) return "<$2m";
-  if (dealValue <= 5_000_000) return "$2m-$5m";
+/** The segment a weighted value implies; boundary amounts count as the middle band. */
+export function segmentForValue(weightedValue: number | null | undefined): string | null {
+  if (weightedValue == null || Number.isNaN(weightedValue)) return null;
+  if (weightedValue < 2_000_000) return "<$2m";
+  if (weightedValue <= 5_000_000) return "$2m-$5m";
   return ">$5m";
-}
-
-/** Non-blocking mismatch between the chosen segment and the deal value. */
-export function segmentMismatch(patch: {
-  segment?: string | null | undefined;
-  deal_value?: number | null | undefined;
-}): string | null {
-  const segment = patch.segment?.trim();
-  if (!segment) return null;
-  if (!(SEGMENT_BANDS as readonly string[]).includes(segment)) return null;
-  const implied = segmentForValue(patch.deal_value);
-  if (!implied || implied === segment) return null;
-  return `Segment says ${segment} but the deal value suggests ${implied}.`;
 }
 
 export const PROBABILITY_BY_STAGE: Record<string, number> = {
@@ -197,6 +183,7 @@ export function probabilityForStage(stage: string | null | undefined): number | 
 /** Fields the app works out; they are shown read-only. */
 export const COMPUTED_FIELDS = new Set<string>([
   "weighted_value",
+  "segment",
   "is_open",
   "age_days",
   "stage_duration_days",
@@ -235,6 +222,7 @@ type DerivableFields = {
   stage?: string | null | undefined;
   last_stage_change?: string | null | undefined;
   weighted_value?: number | null | undefined;
+  segment?: string | null | undefined;
   is_open?: boolean | undefined;
   age_days?: number | null | undefined;
   stage_duration_days?: number | null | undefined;
@@ -246,14 +234,17 @@ export function withCalculatedFields<T extends DerivableFields>(
   context: { createdAt?: string | null } = {},
 ): T & {
   weighted_value: number | null;
+  segment: string | null;
   is_open: boolean;
   age_days: number | null;
   stage_duration_days: number | null;
 } {
   const created = context.createdAt ?? null;
+  const weighted = computeWeightedValue(values.deal_value ?? null, values.probability ?? null);
   return {
     ...values,
-    weighted_value: computeWeightedValue(values.deal_value ?? null, values.probability ?? null),
+    weighted_value: weighted,
+    segment: segmentForValue(weighted),
     is_open: isOpenForStage(values.stage ?? null),
     age_days: daysSince(created),
     stage_duration_days: daysSince(values.last_stage_change ?? created),

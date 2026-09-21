@@ -3,7 +3,14 @@ import { utils, writeFile } from "xlsx";
 import { IMPORT_FIELDS, labelFor, type PipelineData } from "./pipeline-types";
 
 /** Fields the app recalculates — imported values are overwritten. */
-const CALCULATED = new Set(["weighted_value", "age_days", "stage_duration_days", "is_open", "last_stage_change"]);
+const CALCULATED = new Set([
+  "weighted_value",
+  "segment",
+  "age_days",
+  "stage_duration_days",
+  "is_open",
+  "last_stage_change",
+]);
 const REQUIRED = new Set(["id", "name"]);
 
 function kindHint(kind: string): string {
