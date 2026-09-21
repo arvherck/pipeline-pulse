@@ -309,7 +309,7 @@ export function OpportunityPanel({
                       <FieldEditor
                         key={key}
                         field={field}
-                        label={key === "close_date" ? "Expected close date" : label(key)}
+                        label={label(key)}
                         data={data}
                         value={draft.fields[key] ?? ""}
                         isOpen={computed?.is_open ?? true}
@@ -329,7 +329,7 @@ export function OpportunityPanel({
                       <FieldEditor
                         key={key}
                         field={field}
-                        label={label(key)}
+                        label={key === "close_date" ? "Expected close date" : label(key)}
                         data={data}
                         value={draft.fields[key] ?? ""}
                         isOpen={computed?.is_open ?? true}
