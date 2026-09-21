@@ -16,7 +16,6 @@ import {
 } from "@/lib/pipeline.functions";
 
 import {
-  COMPUTED_FIELDS,
   EDITABLE_FIELDS,
   STATUS_NOTE_OPTIONS,
   isPicklistField,
@@ -30,7 +29,6 @@ import {
   type OpportunityPatch,
 } from "@/lib/opportunity-schema";
 import {
-  formatDate,
   formatMoney,
   labelFor,
   type Opportunity,
@@ -520,6 +518,36 @@ function Hint({ text }: { text: string }) {
   return <p className="mt-0.5 text-[11px] text-muted-foreground">{text}</p>;
 }
 
+function FieldGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="border-b py-5 first:pt-0">
+      <h3 className="mb-3 font-display text-xs font-semibold uppercase text-muted-foreground">
+        {title}
+      </h3>
+      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+function ComputedMetric({
+  label,
+  value,
+  emphasis = false,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className={cn("min-w-0 border-l-2 border-border pl-3", emphasis && "border-l-primary")}>
+      <FieldLabel text={label} />
+      <p className={cn("data-value mt-1 text-sm font-semibold", emphasis && "text-lg text-primary")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function FieldEditor({
   field,
   label,
@@ -592,10 +620,9 @@ function FieldEditor({
           </select>
         )
       ) : field.kind === "boolean" ? (
-        <div className="flex h-8 items-center gap-2">
-          <Switch checked={Boolean(value)} onCheckedChange={(checked) => onChange(checked)} />
-          <span className="text-[13px]">{value ? "Open" : "Closed"}</span>
-        </div>
+        <p className="h-8 border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
+          {value ? "Open" : "Closed"}
+        </p>
       ) : field.kind === "select" ? (
         <select
           className={cn(
