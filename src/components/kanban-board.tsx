@@ -196,6 +196,9 @@ function Card({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: opportunity.id,
   });
+  const probability = opportunity.probability == null
+    ? null
+    : Math.min(100, Math.max(0, opportunity.probability));
 
   return (
     <article
@@ -219,24 +222,74 @@ function Card({
       }}
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : {}}
       className={cn(
-        "group relative cursor-grab border bg-background p-3 text-left transition-[border-color,transform,box-shadow] after:absolute after:bottom-0 after:right-0 after:size-2 after:border-b after:border-r after:border-border hover:-translate-y-0.5 hover:border-primary hover:shadow-sm hover:after:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group relative cursor-grab overflow-hidden border bg-background text-left transition-[border-color,transform,box-shadow] after:absolute after:bottom-0 after:right-0 after:size-2 after:border-b after:border-r after:border-border hover:-translate-y-0.5 hover:border-primary hover:shadow-sm hover:after:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isDragging && "opacity-60 shadow-md",
       )}
     >
-      <div className="mb-2 flex items-center justify-between gap-2"><span className="tech-label text-primary">{opportunity.id}</span><span className="tech-label">{opportunity.probability == null ? "--" : `${opportunity.probability}%`}</span></div>
-      <p className="font-display text-sm font-bold leading-snug transition-colors group-hover:text-primary">{opportunity.name}</p>
-      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-        {opportunity.account_name ?? "—"}
-      </p>
-      <div className="mt-1.5 flex items-center justify-between text-xs">
-        <span className="data-value font-bold">{formatMoney(opportunity.deal_value)}</span>
-        <span className="text-muted-foreground">{formatDate(opportunity.close_date)}</span>
+      <div className="px-3 pt-3">
+        <div className="flex items-start justify-between gap-3">
+          <span className="tech-label min-w-0 truncate text-primary">{opportunity.id}</span>
+          <div className="shrink-0 text-right">
+            <span className="tech-label block text-muted-foreground">Probability</span>
+            <div className="mt-1 flex items-center justify-end gap-1.5">
+              <span className="data-value text-[11px] font-bold">
+                {probability == null ? "—" : `${probability}%`}
+              </span>
+              <div
+                className="h-1.5 w-10 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-label="Opportunity probability"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={probability ?? undefined}
+              >
+                {probability != null ? (
+                  <span className="block h-full bg-primary" style={{ width: `${probability}%` }} />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 min-w-0">
+          <p className="truncate font-display text-base font-bold leading-snug transition-colors group-hover:text-primary">
+            {opportunity.name}
+          </p>
+          <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
+            {opportunity.account_name ?? "No client"}
+          </p>
+        </div>
+
+        <div className="mt-3">
+          <span className="tech-label block text-muted-foreground">Deal value</span>
+          <span className="data-value mt-0.5 block text-xl font-bold text-foreground">
+            {formatMoney(opportunity.deal_value)}
+          </span>
+        </div>
       </div>
-      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span className="truncate">{opportunity.stage ?? "—"}</span>
-        <span className="truncate">{opportunity.owner ?? ""}</span>
+
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-y bg-muted/35 px-3 py-2.5">
+        <div className="min-w-0">
+          <span className="tech-label block text-muted-foreground">Expected close</span>
+          <span className="mt-0.5 block truncate text-xs font-semibold">
+            {formatDate(opportunity.close_date)}
+          </span>
+        </div>
+        <div className="min-w-0 text-right">
+          <span className="tech-label block text-muted-foreground">Owner</span>
+          <span className="mt-0.5 block truncate text-xs font-semibold">
+            {opportunity.owner ?? "Unassigned"}
+          </span>
+        </div>
+        <div className="col-span-2 min-w-0">
+          <span className="tech-label block text-muted-foreground">Stage</span>
+          <span className="mt-0.5 inline-block max-w-full truncate border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+            {opportunity.stage ?? "Not set"}
+          </span>
+        </div>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+
+      <div className="flex min-h-9 flex-wrap items-center gap-1 px-3 py-2 text-[10px]">
         {rollup && rollup.open > 0 ? (
           <span className="border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
             {rollup.open} open action{rollup.open === 1 ? "" : "s"}
