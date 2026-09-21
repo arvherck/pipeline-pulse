@@ -183,6 +183,7 @@ export function probabilityForStage(stage: string | null | undefined): number | 
 /** Fields the app works out; they are shown read-only. */
 export const COMPUTED_FIELDS = new Set<string>([
   "weighted_value",
+  "segment",
   "is_open",
   "age_days",
   "stage_duration_days",
