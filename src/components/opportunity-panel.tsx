@@ -20,7 +20,6 @@ import {
   STATUS_NOTE_OPTIONS,
   isPicklistField,
   probabilityForStage,
-  segmentMismatch,
   statusOutcomeForStage,
   validatePatch,
   warningsFor,
@@ -158,7 +157,6 @@ export function OpportunityPanel({
   const patch = draft ? toPatch(draft) : null;
   const errors = patch ? validatePatch(patch) : {};
   const warnings = patch ? warningsFor(patch) : {};
-  const segmentWarning = patch ? segmentMismatch(patch) : null;
   const dirty = creating
     ? true
     : draft && savedOpportunity
@@ -304,12 +302,6 @@ export function OpportunityPanel({
               </div>
 
               <TabsContent value="details" className="min-h-0 flex-1 overflow-y-auto px-5 pb-24 pt-5">
-                {segmentWarning ? (
-                  <p className="mb-5 border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
-                    {segmentWarning} You can still save.
-                  </p>
-                ) : null}
-
                 <FieldGroup title="Deal essentials">
                   {(["name", "account_name", "stage", "owner", "category"] as const).map((key) => {
                     const field = EDITABLE_FIELDS.find((candidate) => candidate.key === key);
@@ -317,7 +309,7 @@ export function OpportunityPanel({
                       <FieldEditor
                         key={key}
                         field={field}
-                        label={label(key)}
+                        label={key === "close_date" ? "Expected close date" : label(key)}
                         data={data}
                         value={draft.fields[key] ?? ""}
                         isOpen={computed?.is_open ?? true}
@@ -374,7 +366,6 @@ export function OpportunityPanel({
                 </FieldGroup>
 
                 <section className="mt-6 border-t pt-5">
-                  <h3 className="mb-3 font-display text-xs font-semibold uppercase text-muted-foreground">Comments</h3>
                   {(() => {
                     const field = EDITABLE_FIELDS.find((candidate) => candidate.key === "comment");
                     return field ? (
