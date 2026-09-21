@@ -6,14 +6,12 @@ import { ActionList } from "@/components/action-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RevenuePlanEditor } from "@/components/revenue-plan-editor";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createOpportunity,
   deleteOpportunity,
-  setStatusNotes,
   updateOpportunity,
 } from "@/lib/pipeline.functions";
 
@@ -119,7 +117,6 @@ export function OpportunityPanel({
   onClose: () => void;
 }) {
   const invalidate = useInvalidatePipeline();
-  const saveNotes = useServerFn(setStatusNotes);
   const saveOpportunity = useServerFn(updateOpportunity);
   const addOpportunity = useServerFn(createOpportunity);
   const removeOpportunity = useServerFn(deleteOpportunity);
@@ -128,10 +125,8 @@ export function OpportunityPanel({
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
-  const [notes, setNotes] = useState("");
   const [newId, setNewId] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [newCustomKey, setNewCustomKey] = useState("");
 
   const opportunityId = creating ? "" : opportunity?.id ?? "";
   const savedOpportunity = useMemo(
@@ -147,7 +142,6 @@ export function OpportunityPanel({
   useEffect(() => {
     if (creating) {
       setDraft(blankDraft());
-      setNotes("");
       setConfirmDelete(false);
       setNewId(nextReference(latest.current.opportunities));
       return;
@@ -157,9 +151,6 @@ export function OpportunityPanel({
       return;
     }
     setConfirmDelete(false);
-    setNotes(
-      latest.current.statuses.find((s) => s.opportunity_id === opportunityId)?.notes ?? "",
-    );
     const row = latest.current.opportunities.find((o) => o.id === opportunityId);
     if (row) setDraft(toDraft(row));
   }, [opportunityId, creating]);
@@ -220,21 +211,6 @@ export function OpportunityPanel({
     });
   }
 
-  function setCustom(key: string, value: string) {
-    setDraft((current) =>
-      current ? { ...current, custom: { ...current.custom, [key]: value } } : current,
-    );
-  }
-
-  function removeCustom(key: string) {
-    setDraft((current) => {
-      if (!current) return current;
-      const next = { ...current.custom };
-      delete next[key];
-      return { ...current, custom: next };
-    });
-  }
-
   async function save() {
     if (!patch || hasErrors) return;
     setSaving(true);
@@ -282,50 +258,43 @@ export function OpportunityPanel({
       open={creating || Boolean(opportunity)}
       onOpenChange={(open) => (open ? null : onClose())}
     >
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="flex w-full flex-col overflow-hidden sm:max-w-2xl">
         {(creating || opportunity) && draft ? (
           <>
-            <SheetHeader className="pb-0">
-              <div className="tech-label text-primary">
-                {creating ? "New opportunity // draft" : `Opportunity record // ${opportunity?.id}`}
+            <SheetHeader className="shrink-0 border-b px-5 pb-4 pt-5 text-left">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{creating ? newId : opportunity?.id}</span>
+                {creating || !opportunity ? null : (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                      {laneOf(data, opportunity.id)?.label ?? "No lane"}
+                    </span>
+                  </>
+                )}
               </div>
-              <SheetTitle className="text-base leading-snug">
+              <SheetTitle className="mt-2 text-xl leading-tight">
                 {creating
                   ? typeof draft.fields["name"] === "string" && draft.fields["name"].trim()
                     ? String(draft.fields["name"])
                     : "Untitled opportunity"
                   : savedOpportunity?.name}
               </SheetTitle>
-              {creating ? (
-                <p className="text-xs text-muted-foreground">
-                  Fill in at least a name and a stage. New deals start in the first board lane.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  {savedOpportunity?.account_name ?? "No client"} · {opportunity?.id} · updated{" "}
-                  {formatDate(savedOpportunity?.updated_at ?? null)}
-                </p>
-              )}
-              {creating || !opportunity ? null : (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="tech-label">Board lane</span>
-                  <span className="data-value border px-1.5 py-0.5 text-xs font-semibold">
-                    {laneOf(data, opportunity.id)?.label ?? "—"}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">drag the card to change</span>
-                </div>
-              )}
-
+              <p className="mt-1 text-sm text-muted-foreground">
+                {typeof draft.fields["account_name"] === "string" && draft.fields["account_name"].trim()
+                  ? String(draft.fields["account_name"])
+                  : "No client"}
+              </p>
             </SheetHeader>
 
-
-            <Tabs defaultValue="details" className="px-4 pb-8">
-              <TabsList className="mb-3">
+            <Tabs defaultValue="details" className="flex min-h-0 flex-1 flex-col">
+              <div className="shrink-0 border-b px-5">
+                <TabsList className="h-11 bg-transparent p-0">
                 <TabsTrigger value="details" className="text-xs">
                   Details
                 </TabsTrigger>
                 <TabsTrigger value="actions" className="text-xs">
-                  Actions
+                  Actions{actions.length > 0 ? ` (${actions.length})` : ""}
                 </TabsTrigger>
                 <TabsTrigger value="revenue" className="text-xs">
                   Revenue
@@ -333,112 +302,103 @@ export function OpportunityPanel({
                 <TabsTrigger value="history" className="text-xs">
                   History
                 </TabsTrigger>
-              </TabsList>
+                </TabsList>
+              </div>
 
-              <TabsContent value="details" className="space-y-4">
+              <TabsContent value="details" className="min-h-0 flex-1 overflow-y-auto px-5 pb-24 pt-5">
                 {segmentWarning ? (
-                  <p className="rounded-sm border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+                  <p className="mb-5 border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
                     {segmentWarning} You can still save.
                   </p>
                 ) : null}
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <FieldLabel text={label("id")} />
-                    {creating ? (
-                      <>
-                        <Input
-                          className="h-8 text-[13px]"
-                          value={newId}
-                          onChange={(e) => setNewId(e.target.value)}
-                        />
-                        <Hint text="Suggested reference — change it to match your own numbering if you like." />
-                      </>
-                    ) : (
-                      <>
-                        <p className="h-8 rounded-md border bg-muted px-2 py-1.5 text-[13px] text-muted-foreground">
-                          {opportunity?.id}
-                        </p>
-                        <Hint text="Set at import — used to match rows, so it can't be changed." />
-                      </>
-                    )}
-                  </div>
+                <FieldGroup title="Deal essentials">
+                  {(["name", "account_name", "stage", "owner", "category"] as const).map((key) => {
+                    const field = EDITABLE_FIELDS.find((candidate) => candidate.key === key);
+                    return field ? (
+                      <FieldEditor
+                        key={key}
+                        field={field}
+                        label={label(key)}
+                        data={data}
+                        value={draft.fields[key] ?? ""}
+                        isOpen={computed?.is_open ?? true}
+                        stage={String(draft.fields["stage"] ?? "")}
+                        error={errors[key]}
+                        warning={warnings[key]}
+                        onChange={(value) => set(key, value)}
+                      />
+                    ) : null;
+                  })}
+                </FieldGroup>
 
-                  {EDITABLE_FIELDS.map((field) => (
-                    <FieldEditor
-                      key={field.key}
-                      field={field}
-                      label={label(field.key)}
-                      data={data}
-                      value={draft.fields[field.key] ?? ""}
-                      isOpen={computed ? computed.is_open : Boolean(draft.fields["is_open"])}
-                      stage={typeof draft.fields["stage"] === "string" ? draft.fields["stage"] : ""}
-                      computedText={
-                        COMPUTED_FIELDS.has(field.key) ? computedText(field.key) : undefined
-                      }
-                      error={errors[field.key]}
-                      warning={warnings[field.key]}
-                      onChange={(value) => set(field.key, value)}
-                    />
-                  ))}
+                <FieldGroup title="Value & confidence">
+                  {(["deal_value", "probability"] as const).map((key) => {
+                    const field = EDITABLE_FIELDS.find((candidate) => candidate.key === key);
+                    return field ? (
+                      <FieldEditor
+                        key={key}
+                        field={field}
+                        label={label(key)}
+                        data={data}
+                        value={draft.fields[key] ?? ""}
+                        isOpen={computed?.is_open ?? true}
+                        stage={String(draft.fields["stage"] ?? "")}
+                        error={errors[key]}
+                        warning={warnings[key]}
+                        onChange={(value) => set(key, value)}
+                      />
+                    ) : null;
+                  })}
+                  <ComputedMetric label={label("weighted_value")} value={computedText("weighted_value")} emphasis />
+                </FieldGroup>
 
-                </div>
+                <FieldGroup title="Timing">
+                  {(["close_date", "contract_start", "contract_end"] as const).map((key) => {
+                    const field = EDITABLE_FIELDS.find((candidate) => candidate.key === key);
+                    return field ? (
+                      <FieldEditor
+                        key={key}
+                        field={field}
+                        label={label(key)}
+                        data={data}
+                        value={draft.fields[key] ?? ""}
+                        isOpen={computed?.is_open ?? true}
+                        stage={String(draft.fields["stage"] ?? "")}
+                        error={errors[key]}
+                        warning={warnings[key]}
+                        onChange={(value) => set(key, value)}
+                      />
+                    ) : null;
+                  })}
+                  <ComputedMetric label={label("age_days")} value={computedText("age_days")} />
+                  <ComputedMetric label={label("stage_duration_days")} value={computedText("stage_duration_days")} />
+                </FieldGroup>
 
-                <section className="space-y-2 border-t pt-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Extra fields
-                  </h3>
-                  {Object.keys(draft.custom).length === 0 ? (
-                    <p className="text-[13px] text-muted-foreground">None yet.</p>
-                  ) : null}
-                  {Object.entries(draft.custom).map(([key, value]) => (
-                    <div key={key} className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <FieldLabel text={label(key)} />
-                        <Input
-                          className="h-8 text-[13px]"
-                          value={value}
-                          onChange={(e) => setCustom(key, e.target.value)}
-                        />
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label={`Remove ${key}`}
-                        onClick={() => removeCustom(key)}
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  ))}
-                  <div className="flex gap-2">
-                    <Input
-                      className="h-8 text-[13px]"
-                      placeholder="New extra field name"
-                      value={newCustomKey}
-                      onChange={(e) => setNewCustomKey(e.target.value)}
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!newCustomKey.trim()}
-                      onClick={() => {
-                        setCustom(newCustomKey.trim(), "");
-                        setNewCustomKey("");
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </div>
+                <section className="mt-6 border-t pt-5">
+                  <h3 className="mb-3 font-display text-xs font-semibold uppercase text-muted-foreground">Comments</h3>
+                  {(() => {
+                    const field = EDITABLE_FIELDS.find((candidate) => candidate.key === "comment");
+                    return field ? (
+                      <FieldEditor
+                        field={field}
+                        label={label("comment")}
+                        data={data}
+                        value={draft.fields["comment"] ?? ""}
+                        isOpen={computed?.is_open ?? true}
+                        stage={String(draft.fields["stage"] ?? "")}
+                        error={errors["comment"]}
+                        warning={warnings["comment"]}
+                        onChange={(value) => set("comment", value)}
+                      />
+                    ) : null;
+                  })()}
                 </section>
 
                 {creating ? null : (
-                  <section className="space-y-2 border-t pt-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Danger zone
-                    </h3>
+                  <section className="mt-7 border-t pt-4">
                     {confirmDelete ? (
-                      <div className="rounded-sm border border-destructive/50 bg-destructive/10 p-3">
+                      <div className="border border-destructive/50 bg-destructive/10 p-3">
                         <p className="text-[13px]">
                           Delete <strong>{savedOpportunity?.name ?? opportunity?.id}</strong> for
                           good? Its actions and change history go too. This can't be undone.
@@ -465,8 +425,8 @@ export function OpportunityPanel({
                     ) : (
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                        variant="ghost"
+                        className="px-0 text-xs text-muted-foreground hover:text-destructive"
                         onClick={() => setConfirmDelete(true)}
                       >
                         Delete opportunity
@@ -475,7 +435,7 @@ export function OpportunityPanel({
                   </section>
                 )}
 
-                <div className="sticky bottom-0 -mx-4 flex items-center gap-2 border-t-2 border-primary/30 bg-background/95 px-4 py-3 backdrop-blur-sm">
+                <div className="fixed bottom-0 right-0 z-10 flex w-full items-center gap-2 border-t bg-background/95 px-5 py-3 backdrop-blur-sm sm:max-w-2xl">
                   <Button size="sm" disabled={hasErrors || !dirty || saving} onClick={save}>
                     {saving ? "Saving…" : creating ? "Create opportunity" : "Save"}
                   </Button>
@@ -503,42 +463,17 @@ export function OpportunityPanel({
                 </div>
               </TabsContent>
 
-              <TabsContent value="actions" className="space-y-6">
+              <TabsContent value="actions" className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                 {creating || !opportunity ? (
                   <p className="text-[13px] text-muted-foreground">
                     Create the opportunity first, then add follow-up actions here.
                   </p>
                 ) : (
-                  <>
-                    <section>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Status note
-                      </h3>
-                      <Textarea
-                        className="mt-2 min-h-20 text-[13px]"
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="What's happening with this deal?"
-                      />
-                      <Button
-                        size="sm"
-                        className="mt-2"
-                        onClick={async () => {
-                          await saveNotes({ data: { opportunityId: opportunity.id, notes } });
-                          await invalidate();
-                          toast.success("Note saved");
-                        }}
-                      >
-                        Save note
-                      </Button>
-                    </section>
-
-                    <ActionList opportunityId={opportunity.id} actions={actions} />
-                  </>
+                  <ActionList opportunityId={opportunity.id} actions={actions} />
                 )}
               </TabsContent>
 
-              <TabsContent value="revenue">
+              <TabsContent value="revenue" className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                 {creating || !opportunity ? (
                   <p className="text-[13px] text-muted-foreground">
                     Create the opportunity first, then plan its revenue by month.
@@ -548,13 +483,13 @@ export function OpportunityPanel({
                 )}
               </TabsContent>
 
-              <TabsContent value="history">
+              <TabsContent value="history" className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                 {changes.length === 0 ? (
                   <p className="text-[13px] text-muted-foreground">No edits recorded yet.</p>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="relative space-y-5 border-l pl-5">
                     {changes.map((change) => (
-                      <li key={change.id} className="border-b pb-2 text-[13px] last:border-0">
+                      <li key={change.id} className="relative text-[13px] before:absolute before:-left-[1.45rem] before:top-1 before:size-2 before:bg-primary">
                         <p className="font-medium">{label(change.field_name)}</p>
                         <p className="text-muted-foreground">
                           was {change.old_value ?? "empty"} → now {change.new_value ?? "empty"}
